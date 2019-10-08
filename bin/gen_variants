@@ -84,7 +84,7 @@ analyze_rpm () {
   # store the info
   key=$(echo $name | tr '_' ',' |tr -d '.')
   #add arch to variant info to key
-  # key="${key},$(arch)"
+  key="${key},$(arch)"
   echo $key $num_breakpoints $num_variables >> $data_file
 }
 
