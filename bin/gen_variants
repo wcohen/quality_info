@@ -108,7 +108,13 @@ driver () {
 	     clang) compiler_name="_llvm" ;;
 	     esac
 	     if test -n "$lto"; then
-	       lto_name="_lto"
+		 lto_name="_lto"
+		 # workarounds for llvm
+		 optflags="${optflags%-specs=/usr/lib/rpm/redhat/redhat-hardened-cc1}"
+		 optflags="${optflags%-specs=/usr/lib/rpm/redhat/redhat-annobin}"
+		 optflags="${optflags/-Wall/}"
+		 optflags="${optflags/-fstack-clash-protection/}"
+		 optflags="${optflags} -Wno-narrowing"
 	     else
 	       lto_name="_"
 	     fi
