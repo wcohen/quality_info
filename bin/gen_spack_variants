@@ -1,0 +1,135 @@
+#! /bin/bash
+# a script to mechanically generate a bunch of compilation variants
+#
+#
+#Scope: Platforms {RHEL8,Rawhide}
+#        Compilers {GCC,LLVM}
+#       Architectures {x86-64,ppc64le} (?)
+#       CFLAGS {-O0,-O2} x {-flto,} x {-g,-gdwarf-4,-gdwarf-5} x {-gsplit-dwarf,}
+#       Consumers {systemtap,gdb,lldb} (?)
+#       upon some nontrivial program, like systemtap
+
+
+build_spack () {
+  local compiler="$1"
+  local options="$2"
+  local variant="$3"
+  local package="$4"
+  case $compiler in
+    gcc) 
+      ;;
+    clang)
+      ;;
+    *)
+      echo "unknown compiler $compiler"
+      exit 1
+      ;;
+    esac
+    unset spack_args
+    spack_args=("install" "${package}"
+		"cflags=${options}"
+		"cxxflags=${options}"
+		"%${compiler}" )
+    echo building "spack ${spack_args[@]}"
+    spack "${spack_args[@]}"
+}
+
+analyze_executable () {
+  local compiler="$1"
+  local options="$2"
+  local variant="$3"
+  local package="$4"
+  local file_of_interest="$5"
+  echo "analyze ${file_of_interest} in ${package}"
+  unset spack_args
+  spack_args=("find" "-px" "${package}"
+	      "cflags=${options}"
+	      "cxxflags=${options}"
+	      "%${compiler}" )
+  echo "spack ${spack_args[@]}"
+  broot=$(spack "${spack_args[@]}" | grep "${package}@" |grep -o "/[[:print:]]*")
+  if test -z ${broot}; then
+      # exit 1
+      return
+  fi
+  # compute some simple metrics
+  # count number of statements with a line record
+  #    (= number of breakpointable points)
+  foi=$(basename ${file_of_interest})
+  foi_dir=$(dirname ${file_of_interest})
+  pushd ${broot}${foi_dir}
+  probe_lines="process(\"./${foi}\").statement(\"*@*:*\")"
+  num_breakpoints=$(stap -l ${probe_lines} | wc -l)
+  # then for all statements with a line record,
+  #    count number of variables with consumer-supported location lists
+  probe_variables="process(\"./${foi}\").statement(\"*@*:*\")"
+  num_variables=$(stap -L ${probe_variables} | sed "s, \\$,\n \\$,g" |grep -c " \\$")
+  popd
+  # store the info
+  key=$(echo $name | tr '_' ',' |tr -d '.')
+  #add arch to variant info to key
+  key="${key},$(arch)"
+  echo $key $num_breakpoints $num_variables >> $data_file
+}
+
+driver () {
+  local spec_file=$1
+  local file_of_interest=$2
+  local base_name=$(rpm --eval "%dist")
+  local orig_optflags=$(rpm --eval %optflags)
+  arch=$(arch)
+  #remove -g and -O2
+  base_optflags=${orig_optflags/-g/}
+  base_optflags=${base_optflags/-O2/}
+  base_optflags=""
+  for compiler in "gcc" "clang" ; do
+    for lto in "" "-flto -ffat-lto-objects"; do
+      for opt_level in "-O2" "-O0"; do
+        for debug in "-g" "-gdwarf-4" "-gdwarf-5"; do
+          for split in "" "-gsplit-dwarf"; do
+	     optflags="$lto $opt_level $debug $split $base_optflags"
+	     case $compiler in
+	     gcc) compiler_name="_gcc" ;;
+	     clang) compiler_name="_llvm" ;;
+	     esac
+	     if test -n "$lto"; then
+		 lto_name="_lto"
+		 # workarounds for llvm
+		 optflags="${optflags%-specs=/usr/lib/rpm/redhat/redhat-hardened-cc1}"
+		 optflags="${optflags%-specs=/usr/lib/rpm/redhat/redhat-annobin}"
+		 optflags="${optflags/-Wall/}"
+		 optflags="${optflags/-fstack-clash-protection/}"
+		 optflags="${optflags} -Wno-narrowing"
+	     else
+	       lto_name="_"
+	     fi
+	     case $opt_level in
+	     -O0) opt_name="_o0" ;;
+	     -O2) opt_name="_o2" ;;
+	     esac
+	     case $debug in
+	     -g) debug_name="_g" ;;
+	     -gdwarf-4) debug_name="_d4" ;;
+	     -gdwarf-5) debug_name="_d5" ;;
+	     esac
+	     case $split in
+	     -gsplit-dwarf) split_name="_split" ;;
+	     *) split_name="_" ;;
+	     esac
+	     # generate name
+	     name="${base_name}${compiler_name}${opt_name}${lto_name}${debug_name}${split_name}"
+	     echo "$compiler" "$optflags" "$name" "$spec_file"
+	     build_spack "$compiler" "$optflags" "$name" "$spec_file"
+	     analyze_executable "$compiler" "$optflags" "$name" "$spec_file" "$file_of_interest"
+	  done
+	done
+      done
+    done
+  done
+}
+
+exec_base_name=$(basename $2)
+pwd=$(pwd)
+data_file="$(pwd)/${exec_base_name}_spack_data_file.txt"
+rm -rf ${data_file}
+driver $1 $2
