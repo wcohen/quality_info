@@ -82,6 +82,12 @@ driver () {
   base_optflags=${orig_optflags/-g/}
   base_optflags=${base_optflags/-O2/}
   base_optflags=""
+  # turn off compiler options as workarounds for llvm
+  optflags="${optflags%-specs=/usr/lib/rpm/redhat/redhat-hardened-cc1}"
+  optflags="${optflags%-specs=/usr/lib/rpm/redhat/redhat-annobin}"
+  optflags="${optflags/-Wall/}"
+  optflags="${optflags/-fstack-clash-protection/}"
+  optflags="${optflags} -Wno-narrowing"
   for compiler in "gcc" "clang" ; do
     for lto in "" "-flto -ffat-lto-objects"; do
       for opt_level in "-O2" "-O0"; do
@@ -94,14 +100,8 @@ driver () {
 	     esac
 	     if test -n "$lto"; then
 		 lto_name="_lto"
-		 # workarounds for llvm
-		 optflags="${optflags%-specs=/usr/lib/rpm/redhat/redhat-hardened-cc1}"
-		 optflags="${optflags%-specs=/usr/lib/rpm/redhat/redhat-annobin}"
-		 optflags="${optflags/-Wall/}"
-		 optflags="${optflags/-fstack-clash-protection/}"
-		 optflags="${optflags} -Wno-narrowing"
 	     else
-	       lto_name="_"
+		 lto_name="_"
 	     fi
 	     case $opt_level in
 	     -O0) opt_name="_o0" ;;
