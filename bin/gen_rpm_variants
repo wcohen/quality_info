@@ -11,10 +11,10 @@
 
 
 build_rpm () {
-  compiler="$1"
-  options="$2"
-  variant="$3"
-  spec_file="$4"
+  local compiler="$1"
+  local options="$2"
+  local variant="$3"
+  local spec_file="$4"
   case $compiler in
     gcc) 
       cc=gcc
@@ -49,12 +49,12 @@ set_debug_links () {
 }
 
 analyze_rpm () {
-  compiler="$1"
-  options="$2"
-  variant="$3"
-  spec_file="$4"
-  file_of_interest=$5
-  echo "analyze"
+  local compiler="$1"
+  local options="$2"
+  local variant="$3"
+  local spec_file="$4"
+  local file_of_interest=$5
+  echo "analyze ${file_of_interest} in ${spec_file}"
   #find the directory
   echo $spec_file
   base=${spec_file%.spec}
@@ -89,14 +89,20 @@ analyze_rpm () {
 }
 
 driver () {
-  spec_file=$1
-  file_of_interest=$2
+  local spec_file=$1
+  local file_of_interest=$2
+  local base_name=$(rpm --eval "%dist")
+  local orig_optflags=$(rpm --eval %optflags)
   arch=$(arch)
-  base_name=$(rpm --eval "%dist")
-  orig_optflags=$(rpm --eval %optflags)
   #remove -g and -O2
   base_optflags=${orig_optflags/-g/}
   base_optflags=${base_optflags/-O2/}
+  # turn off compiler options as workarounds for llvm
+  base_optflags="${base_optflags%-specs=/usr/lib/rpm/redhat/redhat-hardened-cc1}"
+  base_optflags="${base_optflags%-specs=/usr/lib/rpm/redhat/redhat-annobin}"
+  base_optflags="${base_optflags/-Wall/}"
+  base_optflags="${base_optflags/-fstack-clash-protection/}"
+  base_optflags="${base_optflags} -Wno-narrowing"
   for compiler in "gcc" "clang" ; do
     for lto in "" "-flto -ffat-lto-objects"; do
       for opt_level in "-O2" "-O0"; do
@@ -109,14 +115,8 @@ driver () {
 	     esac
 	     if test -n "$lto"; then
 		 lto_name="_lto"
-		 # workarounds for llvm
-		 optflags="${optflags%-specs=/usr/lib/rpm/redhat/redhat-hardened-cc1}"
-		 optflags="${optflags%-specs=/usr/lib/rpm/redhat/redhat-annobin}"
-		 optflags="${optflags/-Wall/}"
-		 optflags="${optflags/-fstack-clash-protection/}"
-		 optflags="${optflags} -Wno-narrowing"
 	     else
-	       lto_name="_"
+		 lto_name="_"
 	     fi
 	     case $opt_level in
 	     -O0) opt_name="_o0" ;;
