@@ -1,6 +1,12 @@
 #! /bin/bash
 # a script to mechanically generate a bunch of compilation variants
 #
+#  Before running this script you will need to setup spack with as mentioned
+#  in https://spack.readthedocs.io/en/latest/tutorial_basics.html
+#  with something like:
+#
+#  $ . share/spack/setup-env.sh
+#
 #
 #Scope: Platforms {RHEL8,Rawhide}
 #        Compilers {GCC,LLVM}
