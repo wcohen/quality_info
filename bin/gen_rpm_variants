@@ -88,21 +88,27 @@ analyze_rpm () {
   echo $key $num_breakpoints $num_variables >> $data_file
 }
 
+find_base_optflags () {
+    local orig_optflags=$(rpm --eval %optflags)
+    local _optflags
+    #remove -g and -O2
+    _optflags=${orig_optflags/-g/}
+    _optflags=${_optflags/-O2/}
+    # turn off compiler options as workarounds for llvm
+#  _optflags="${_optflags%-specs=/usr/lib/rpm/redhat/redhat-hardened-cc1}"
+#  _optflags="${_optflags%-specs=/usr/lib/rpm/redhat/redhat-annobin}"
+#  _optflags="${_optflags/-Wall/}"
+    _optflags="${_optflags/-fstack-clash-protection/}"
+    _optflags="${_optflags} -Wno-narrowing"
+    echo ${_optflags}
+}
+
 driver () {
   local spec_file=$1
   local file_of_interest=$2
   local base_name=$(rpm --eval "%dist")
-  local orig_optflags=$(rpm --eval %optflags)
+  local base_optflags=$(find_base_optflags)
   arch=$(arch)
-  #remove -g and -O2
-  base_optflags=${orig_optflags/-g/}
-  base_optflags=${base_optflags/-O2/}
-  # turn off compiler options as workarounds for llvm
-  base_optflags="${base_optflags%-specs=/usr/lib/rpm/redhat/redhat-hardened-cc1}"
-  base_optflags="${base_optflags%-specs=/usr/lib/rpm/redhat/redhat-annobin}"
-  base_optflags="${base_optflags/-Wall/}"
-  base_optflags="${base_optflags/-fstack-clash-protection/}"
-  base_optflags="${base_optflags} -Wno-narrowing"
   for compiler in "gcc" "clang" ; do
     for lto in "" "-flto -ffat-lto-objects"; do
       for opt_level in "-O2" "-O0"; do
