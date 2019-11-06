@@ -1,0 +1,6 @@
+#! /bin/bash
+#install various rpms needed:
+compilers="gcc gcc-c++ gcc-fortran clang"
+tools="cmake python-unversioned-command git bzip2 flex bison m4 tar"
+hpc_support="openblas-devel openmpi-devel"
+dnf install -y ${compilers} ${tools} ${hpc_support}
