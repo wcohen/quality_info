@@ -85,7 +85,7 @@ analyze_rpm () {
   key=$(echo $name | tr '_' ',' |tr -d '.')
   #add arch to variant info to key
   key="${key},$(arch)"
-  echo $key $num_breakpoints $num_variables >> $data_file
+  echo "${key},${num_breakpoints},${num_variables}" >> $data_file
 }
 
 find_base_optflags () {
