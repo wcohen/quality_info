@@ -1,7 +1,8 @@
 #! /bin/bash
 #install various rpms needed:
 compilers="gcc gcc-c++ gcc-fortran clang"
-tools="make cmake python-unversioned-command git bzip2 flex bison m4 tar"
+tools="make cmake python-unversioned-command git bzip2 flex bison m4 tar libtool"
+auto="automake autoconf"
 hpc_support="openblas-devel openmpi-devel"
-dnf install -y ${compilers} ${tools} ${hpc_support}
+dnf install -y ${compilers} ${tools} ${auto} ${hpc_support}
 dnf groupinstall -y "Development Tools"
