@@ -2,5 +2,7 @@
 # removes most of the full path and just leaves the base file name in the stap -L output
 # "/path/..."
 # "blah@/path/...:[0-9]+"
+# also remove /* pc=.absolute+0x1111 */ from the -v output
 sed 's,\"\([^/\"]*/\)*\([^/\"]*\)\",\"./\2\",' |
-sed 's,@/\([^/\"]*/\)*\([^/:\"]*\):,@./\2:,'
+sed 's,@/\([^/\"]*/\)*\([^/:\"]*\):,@./\2:,' |
+sed 's, /\*[^\*/]*\*/,,'
