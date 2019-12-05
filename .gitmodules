@@ -1,0 +1,3 @@
+[submodule "dwqual"]
+	path = dwqual
+	url = https://github.com/woodard/dwqual.git
