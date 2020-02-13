@@ -109,11 +109,11 @@ driver () {
   local base_name=$(rpm --eval "%dist")
   local base_optflags=$(find_base_optflags)
   arch=$(arch)
-  for compiler in "gcc" "clang" ; do
+  for compiler in "gcc" ; do
     for lto in "" "-flto -ffat-lto-objects"; do
-      for opt_level in "-O2" "-O0"; do
-        for debug in "-g" "-gdwarf-4" "-gdwarf-5"; do
-          for split in "" "-gsplit-dwarf"; do
+      for opt_level in "-O2"; do
+        for debug in "-g"; do
+          for split in ""; do
 	     optflags="$lto $opt_level $debug $split $base_optflags"
 	     case $compiler in
 	     gcc) compiler_name="_gcc" ;;
