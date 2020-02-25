@@ -77,17 +77,18 @@ int main(int argc, char **argv){
 	  // go through each block
 	  for (auto b = f->blocks().begin(); b != f->blocks().end(); ++b) {
 		  Block *bb = *b;
-		  // go through each instruction in the block
-		  Address current = bb->start();
+		  Block::Insns insns;
 
 		  printf("# bb start %p end %p\n", bb->start(),  bb->last());
 
-		  while (current <= bb->last()) {
-			  Instruction curInsn = decoder.decode((unsigned char*) current);
-			  int size = curInsn.size();
+		  bb->getInsns(insns);
+		  // go through each instruction in the block
+		  for (auto insn_iter : insns) {
+			  Instruction curInsn = insn_iter.second;
+			  Address curAddr = insn_iter.first;
 
 			  // construct a liveness query location
-			  InsnLoc i(bb, current, curInsn);
+			  InsnLoc i(bb, curAddr, curInsn);
 			  Location loc(f, i);
 			  
 			  // Query live registers at instruction entry
@@ -102,9 +103,7 @@ int main(int argc, char **argv){
 				  printf("Cannot look up live registers at instruction exit\n");
 			  }
 
-			  printf ("%p,%d,%d\n", current, liveEntry.count(), liveExit.count());
-
-			  current += size;
+			  printf ("%p,%d,%d\n", curAddr, liveEntry.count(), liveExit.count());
 		  }
 	  }
   }
