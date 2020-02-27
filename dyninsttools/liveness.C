@@ -53,13 +53,6 @@ int main(int argc, char **argv){
   // Parse the binary
   co->parse();
 
-  #if 0
-  // turn on the liveness analysis debugging output
-  extern int dyn_debug_liveness;
-  dyn_debug_liveness = 1;
-  #endif
-
-
   //iterate through each of the the functions
   for( auto f: co->funcs()) {
 	  LivenessAnalyzer la(f->obj()->cs()->getAddressWidth());
