@@ -9,7 +9,6 @@
  */
 
 #include <dyninst/CodeSource.h>
-#include <dyninst/InstructionDecoder.h>
 #include <dyninst/Location.h>
 #include <dyninst/liveness.h>
 #include <dyninst/bitArray.h>
@@ -66,10 +65,6 @@ int main(int argc, char **argv){
   for( auto f: co->funcs()) {
 	  LivenessAnalyzer la(f->obj()->cs()->getAddressWidth());
 
-	  //create an Instruction decoder to get instruction sizes
-	  InstructionDecoder decoder(f->isrc()->getPtrToInstruction(f->addr()),
-				     InstructionDecoder::maxInstructionLength,
-				     f->region()->getArch());
 	  printf("# %s\n", f->name().c_str());
 	  la.analyze(f);
 
