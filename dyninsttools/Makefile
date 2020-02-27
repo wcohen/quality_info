@@ -7,9 +7,6 @@ LDFLAGS=-L /usr/lib64/dyninst \
 TOOLS=liveness
 all: $(TOOLS)
 
-liveness: liveness.o
-	c++ -O2 $(CXXFLAGS) $(GCCXXFLAGS) -o liveness liveness.o $(LDFLAGS)
-
 clean:
 	rm -rf *.o *~
 	rm -rf $(TOOLS)
