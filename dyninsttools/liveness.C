@@ -16,7 +16,6 @@
 using namespace std;
 using namespace Dyninst;
 using namespace ParseAPI;
-using namespace InstructionAPI;
 
 enum exit_codes {
 		 EXIT_OK=0,
