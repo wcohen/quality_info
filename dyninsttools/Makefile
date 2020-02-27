@@ -4,7 +4,7 @@ LDFLAGS=-L /usr/lib64/dyninst \
 	-l parseAPI -l symtabAPI -l instructionAPI \
 	-l tbb -l common
 
-TOOLS=liveness
+TOOLS=liveness locrangechecks
 all: $(TOOLS)
 
 clean:
