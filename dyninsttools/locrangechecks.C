@@ -92,8 +92,12 @@ int main(int argc, char **argv){
 	         vector<VariableLocation> &lvlocs=j->getLocationLists();
 		 for(auto k: lvlocs) {
  			 // check that each location region is reasonable
-			 printf ("name = %s, k.lowPC=%p, k.hiPC=%p\n",
-				  j->getName().c_str(), k.lowPC, k.hiPC);
+			 cout << "name=" << j->getName()
+			      << " lowPC=" << hex << k.lowPC
+			      << " hiPC=" << hex << k.hiPC
+			      << " stClass=" << k.stClass
+			      << " refClass=" << k.refClass
+			      << endl;
 			 // 1) begin and end within function or global (don't span function boundaries)
 			 if (k.lowPC == 0 || k.hiPC ==-1){
 				 // global variable always valid
