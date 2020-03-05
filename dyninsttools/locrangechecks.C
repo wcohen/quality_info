@@ -64,6 +64,10 @@ int main(int argc, char **argv){
 	  // List of all instruction in the function
 	  Block::Insns func_insns;
 
+	  // skip <name>.cold regions of code
+	  if (f->name().find(".cold")!=string::npos)
+		  continue;
+
 	  // go through each basic block
 	  for (auto bb : f->blocks()) {
 		  Block::Insns insns;
@@ -84,6 +88,7 @@ int main(int argc, char **argv){
 	  Address func_start = f->addr();
 	  Address func_end = func_start + func_sym->getSize();
 	  func_insns[func_end] = nothing;
+
 	  // now get list of locations for function
 	  vector <localVar *> lvars;
 	  func_sym->getParams(lvars);
