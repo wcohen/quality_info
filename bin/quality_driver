@@ -1,0 +1,60 @@
+find_base_optflags () {
+    local orig_optflags=$(rpm --eval %optflags)
+    local _optflags
+    #remove -g and -O2
+    _optflags=${orig_optflags/-g/}
+    _optflags=${_optflags/-O2/}
+    # turn off compiler options as workarounds for llvm
+#  _optflags="${_optflags%-specs=/usr/lib/rpm/redhat/redhat-hardened-cc1}"
+#  _optflags="${_optflags%-specs=/usr/lib/rpm/redhat/redhat-annobin}"
+#  _optflags="${_optflags/-Wall/}"
+    _optflags="${_optflags/-fstack-clash-protection/}"
+    _optflags="${_optflags} -Wno-narrowing"
+    echo ${_optflags}
+}
+
+driver () {
+  local spec_file=$1
+  local file_of_interest=$2
+  local action=$3
+  local base_name=$(rpm --eval "%dist")
+  local base_optflags=$(find_base_optflags)
+  arch=$(arch)
+  for compiler in "gcc" "clang" ; do
+    for lto in "" "-flto -ffat-lto-objects"; do
+      for opt_level in "-O2" "-O0"; do
+        for debug in "-g" "-gdwarf-4" "-gdwarf-5"; do
+          for split in "" "-gsplit-dwarf"; do
+	     optflags="$lto $opt_level $debug $split $base_optflags"
+	     case $compiler in
+	     gcc) compiler_name="_gcc" ;;
+	     clang) compiler_name="_llvm" ;;
+	     esac
+	     if test -n "$lto"; then
+		 lto_name="_lto"
+	     else
+		 lto_name="_"
+	     fi
+	     case $opt_level in
+	     -O0) opt_name="_o0" ;;
+	     -O2) opt_name="_o2" ;;
+	     esac
+	     case $debug in
+	     -g) debug_name="_g" ;;
+	     -gdwarf-4) debug_name="_d4" ;;
+	     -gdwarf-5) debug_name="_d5" ;;
+	     esac
+	     case $split in
+	     -gsplit-dwarf) split_name="_split" ;;
+	     *) split_name="_" ;;
+	     esac
+	     # generate name
+	     name="${base_name}${compiler_name}${opt_name}${lto_name}${debug_name}${split_name}"
+	     echo "$compiler" "$optflags" "$name" "$spec_file"
+	     $action "$compiler" "$optflags" "$name" "$spec_file" "$file_of_interest"
+	  done
+	done
+      done
+    done
+  done
+}

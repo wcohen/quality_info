@@ -9,6 +9,9 @@
 #       Consumers {systemtap,gdb,lldb} (?)
 #       upon some nontrivial program, like systemtap
 
+DIR="${BASH_SOURCE%/*}"
+if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
+. "$DIR/quality_driver"
 
 build_rpm () {
   local compiler="$1"
@@ -35,6 +38,11 @@ build_rpm () {
     export CC=$cc
     export CXX=$cxx
     rpmbuild --define "%optflags $options" --define "%dist $variant" -bi $spec_file
+    # set up debuginfo links
+    broot=$(ls -d ~/rpmbuild/BUILDROOT/${base}*${variant}.*)
+    if test -d ${broot}; then
+	set_debug_links ${broot}
+    fi
 }
 
 set_debug_links () {
@@ -48,109 +56,4 @@ set_debug_links () {
     popd
 }
 
-analyze_rpm () {
-  local compiler="$1"
-  local options="$2"
-  local variant="$3"
-  local spec_file="$4"
-  local file_of_interest=$5
-  echo "analyze ${file_of_interest} in ${spec_file}"
-  #find the directory
-  echo $spec_file
-  base=${spec_file%.spec}
-  echo $base
-  broot=$(ls -d ~/rpmbuild/BUILDROOT/${base}*${variant}.*)
-  if test -z ${broot}; then
-      # exit 1
-      return
-  fi
-  bdir=/usr/bin
-  ldir=$(rpm --eval "%_libdir")
-  # set up debuginfo links
-  set_debug_links ${broot}
-  # compute some simple metrics
-  # count number of statements with a line record
-  #    (= number of breakpointable points)
-  foi=$(basename ${file_of_interest})
-  foi_dir=$(dirname ${file_of_interest})
-  pushd ${broot}${foi_dir}
-  probe_lines="process(\"./${foi}\").statement(\"*@*:*\")"
-  num_breakpoints=$(stap -l ${probe_lines} | wc -l)
-  # then for all statements with a line record,
-  #    count number of variables with consumer-supported location lists
-  probe_variables="process(\"./${foi}\").statement(\"*@*:*\")"
-  num_variables=$(stap -L ${probe_variables} | sed "s, \\$,\n \\$,g" |grep -c " \\$")
-  popd
-  # store the info
-  key=$(echo $name | tr '_' ',' |tr -d '.')
-  #add arch to variant info to key
-  key="${key},$(arch)"
-  echo "${key},${num_breakpoints},${num_variables}" >> $data_file
-}
-
-find_base_optflags () {
-    local orig_optflags=$(rpm --eval %optflags)
-    local _optflags
-    #remove -g and -O2
-    _optflags=${orig_optflags/-g/}
-    _optflags=${_optflags/-O2/}
-    # turn off compiler options as workarounds for llvm
-#  _optflags="${_optflags%-specs=/usr/lib/rpm/redhat/redhat-hardened-cc1}"
-#  _optflags="${_optflags%-specs=/usr/lib/rpm/redhat/redhat-annobin}"
-#  _optflags="${_optflags/-Wall/}"
-    _optflags="${_optflags/-fstack-clash-protection/}"
-    _optflags="${_optflags} -Wno-narrowing"
-    echo ${_optflags}
-}
-
-driver () {
-  local spec_file=$1
-  local file_of_interest=$2
-  local base_name=$(rpm --eval "%dist")
-  local base_optflags=$(find_base_optflags)
-  arch=$(arch)
-  for compiler in "gcc" "clang" ; do
-    for lto in "" "-flto -ffat-lto-objects"; do
-      for opt_level in "-O2" "-O0"; do
-        for debug in "-g" "-gdwarf-4" "-gdwarf-5"; do
-          for split in "" "-gsplit-dwarf"; do
-	     optflags="$lto $opt_level $debug $split $base_optflags"
-	     case $compiler in
-	     gcc) compiler_name="_gcc" ;;
-	     clang) compiler_name="_llvm" ;;
-	     esac
-	     if test -n "$lto"; then
-		 lto_name="_lto"
-	     else
-		 lto_name="_"
-	     fi
-	     case $opt_level in
-	     -O0) opt_name="_o0" ;;
-	     -O2) opt_name="_o2" ;;
-	     esac
-	     case $debug in
-	     -g) debug_name="_g" ;;
-	     -gdwarf-4) debug_name="_d4" ;;
-	     -gdwarf-5) debug_name="_d5" ;;
-	     esac
-	     case $split in
-	     -gsplit-dwarf) split_name="_split" ;;
-	     *) split_name="_" ;;
-	     esac
-	     # generate name
-	     name="${base_name}${compiler_name}${opt_name}${lto_name}${debug_name}${split_name}"
-	     echo "$compiler" "$optflags" "$name" "$spec_file"
-	     build_rpm "$compiler" "$optflags" "$name" "$spec_file"
-	     analyze_rpm "$compiler" "$optflags" "$name" "$spec_file" "$file_of_interest"
-	  done
-	done
-      done
-    done
-  done
-}
-
-exec_base_name=$(basename $2)
-pwd=$(pwd)
-data_file="$(pwd)/${exec_base_name}_data_file.txt"
-rm -rf ${data_file}
-driver $1 $2
+driver "$1" "$2" "build_rpm"
