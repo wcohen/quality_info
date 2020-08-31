@@ -2,7 +2,7 @@
 # get spack setup
 git clone https://github.com/spack/spack.git
 cd spack
-git checkout releases/v0.12
+git checkout releases/v0.15
 . share/spack/setup-env.sh
 spack compiler find
 
