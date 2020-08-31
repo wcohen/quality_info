@@ -35,7 +35,8 @@ build_spack () {
     spack_args=("install" "${package}"
 		"cflags=${options}"
 		"cxxflags=${options}"
-		"%${compiler}" )
+		"%${compiler}"
+		"target=${arch}" )
     echo building "spack ${spack_args[@]}"
     spack "${spack_args[@]}"
 }
