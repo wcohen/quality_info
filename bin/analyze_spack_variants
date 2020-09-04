@@ -1,0 +1,67 @@
+#! /bin/bash
+# a script to mechanically analyze a bunch of compilation variants
+#
+#  Before running this script you will need to setup spack with as mentioned
+#  in https://spack.readthedocs.io/en/latest/tutorial_basics.html
+#  with something like:
+#
+#  $ . share/spack/setup-env.sh
+#
+#
+#Scope: Platforms {RHEL8,Rawhide}
+#        Compilers {GCC,LLVM}
+#       Architectures {x86-64,ppc64le} (?)
+#       CFLAGS {-O0,-O2} x {-flto,} x {-g,-gdwarf-4,-gdwarf-5} x {-gsplit-dwarf,}
+#       Consumers {systemtap,gdb,lldb} (?)
+#       upon some nontrivial program, like systemtap
+
+DIR="${BASH_SOURCE%/*}"
+if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
+. "$DIR/quality_driver"
+
+analyze_executable () {
+  local compiler="$1"
+  local options="$2"
+  local variant="$3"
+  # the package name might be package+option1+option2... strip the options off
+  local package=$(echo "$4"| awk -F+ '{ print $1}')
+  local file_of_interest="$5"
+  echo "analyze ${file_of_interest} in ${package}"
+  unset spack_args
+  spack_args=("find" "-px" "${package}"
+	      "cflags=${options}"
+	      "cxxflags=${options}"
+	      "%${compiler}"
+	      "target=${arch}" )
+  echo "spack ${spack_args[@]}"
+  echo $(spack "${spack_args[@]}")
+  broot=$(spack "${spack_args[@]}" | grep "${package}@" |grep -o "/[[:print:]]*")
+  if test -z ${broot}; then
+      # exit 1
+      return
+  fi
+  # compute some simple metrics
+  # count number of statements with a line record
+  #    (= number of breakpointable points)
+  foi=$(basename ${file_of_interest})
+  foi_dir=$(dirname ${file_of_interest})
+  pushd ${broot}${foi_dir}
+  probe_lines="process(\"./${foi}\").statement(\"*@*:*\")"
+  num_breakpoints=$(stap -l ${probe_lines} | wc -l)
+  # then for all statements with a line record,
+  #    count number of variables with consumer-supported location lists
+  probe_variables="process(\"./${foi}\").statement(\"*@*:*\")"
+  num_variables=$(stap -L ${probe_variables} | sed "s, \\$,\n \\$,g" |grep -c " \\$")
+  popd
+  # store the info
+  key=$(echo $name | tr '_' ',' |tr -d '.')
+  #add arch to variant info to key
+  key="${key},$(arch)"
+  echo "${key},${num_breakpoints},${num_variables}" >> $data_file
+}
+
+exec_base_name=$(basename $2)
+pwd=$(pwd)
+data_file="$(pwd)/${exec_base_name}_spack_data_file.txt"
+rm -rf ${data_file}
+driver "$1" "$2" "analyze_executable"
