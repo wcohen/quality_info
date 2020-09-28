@@ -18,6 +18,9 @@ build_rpm () {
   local options="$2"
   local variant="$3"
   local spec_file="$4"
+  #find the directory
+  echo $spec_file
+  base=${spec_file%.spec}
   case $compiler in
     gcc) 
       cc=gcc
