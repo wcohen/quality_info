@@ -15,14 +15,14 @@ def munge_line(line):
     global filename
     #find if address on line
     if re.match("^0x", line):
-        lineno_column = re.search(r'\d+,\s*\d+', line).group()
-        lineno = re.sub(r'(\d+),\s*(\d+)*', r'\1', lineno_column)
-        column = re.sub(r'(\d+),\s*(\d+)*', r'\2', lineno_column)
+        lineno_column = re.search(r'(\d+),\s*(\d+)', line).group()
+        lineno = re.sub(r'(\d+),\s*(\d+)', r'\1', lineno_column)
+        column = re.sub(r'(\d+),\s*(\d+)', r'\2', lineno_column)
         #find if there is a file name on line
         if re.search(r' uri: ', line):
             # get file name and strip off quotes at beginning and end
             filename = re.search(r'\"[^\"]+\"', line).group()
-            filename = re.search(r'[^\"\+]+', filename).group()
+            filename = re.search(r'[^\"]+', filename).group()
         #generate munged line
         print(f'{filename}:{lineno:0>6}:{column:0>3}')
 
