@@ -39,17 +39,18 @@ analyze_rpm () {
   key="${key},$(arch)"
   echo "# ${key}" >> $data_file
   other_line_col=$(mktemp -t base-XXXXXXXXXX)
-  $DIR/line_column_info.py ${broot}/${foi_dir}/${foi} | sort | uniq > ${other_line_col}
+  # strip out the beginning of the absolute patch with first sed
+  # strip out the variant with the second sed
+  $DIR/line_column_info.py ${broot}/${foi_dir}/${foi} | sed -e "s|${broot}||" | sed -e "s|${variant}||" |sort | uniq > ${other_line_col}
   diff -u ${base_line_col} ${other_line_col} >> $data_file
 }
 
 #find directory for baseline builds
 find_baseline_dir()
 {
-  local compiler="gcc"
   local package=$1
   local base=${package%.spec}
-  local variant="${compiler}_o2__g_"
+  local variant=$2
   baseline_dir=$(ls -d ~/rpmbuild/BUILDROOT/${base}*${variant}.*)
   if test -z ${baseline_dir}; then
       echo "Unable to find $package baseline directory"
@@ -62,8 +63,14 @@ pwd=$(pwd)
 data_file="$(pwd)/${exec_base_name}_rpm_lines_data_file.txt"
 rm -rf ${data_file}
 #find base line for abicheck
-find_baseline_dir "$1"
+base_name=$(rpm --eval "%dist")
+compiler="gcc"
+variant="${base_name}_${compiler}_o2__g_"
+echo $variant
+find_baseline_dir "$1" $variant
 base_line_col=$(mktemp -t base-XXXXXXXXXX)
 #create baseline line/column info
-$DIR/line_column_info.py ${baseline_dir}/${2} | sort | uniq > ${base_line_col}
+# strip out the beginning of the absolute patch with first sed
+# strip out the variant with the second sed
+$DIR/line_column_info.py ${baseline_dir}/${2} | sed -e "s|${baseline_dir}||" | sed -e "s|${variant}||" | sort | uniq > ${base_line_col}
 driver $1 $2 "analyze_rpm"
