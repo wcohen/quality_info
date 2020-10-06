@@ -72,6 +72,9 @@ gcc variant compiled with -O2 and -g and reports any differences.
 
 # Build RPM variants
 
+Below is an example building variants of the binutils RPM that can be
+used for analysis:
+
     dnf download --source binutils
     rpm -Uvh ./binutils*src.rpm
     cd ~/rpmbuild/SPECS
