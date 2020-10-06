@@ -1,0 +1,79 @@
+#! /bin/bash
+# a script to look at differences of binaries lines/column
+#
+# It uses the gcc build with -g and -O2 as the baseline for comparison.
+# It generates lists of every file:line:column in the source code
+# that have executable code associated with it.  Each of these lists
+# are compared with the baseline and the differences are noted in the
+# output file.
+#
+
+DIR="${BASH_SOURCE%/*}"
+if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
+. "$DIR/quality_driver"
+
+analyze_executable () {
+  local compiler="$1"
+  local options="$2"
+  local variant="$3"
+  # the package name might be package+option1+option2... strip the options off
+  local package=$(echo "$4"| awk -F+ '{ print $1}')
+  local file_of_interest="$5"
+  echo "analyze ${file_of_interest} in ${package}"
+  unset spack_args
+  spack_args=("find" "-px" "${package}"
+	      "cflags=${options}"
+	      "cxxflags=${options}"
+	      "%${compiler}"
+	      "target=${arch}" )
+  echo "spack ${spack_args[@]}"
+  broot=$(spack "${spack_args[@]}" | grep "${package}@" |grep -o "/[[:print:]]*")
+  if test -z ${broot}; then
+      # exit 1
+      return
+  fi
+  # compare the executables with abidiff
+  foi=$(basename ${file_of_interest})
+  foi_dir=$(dirname ${file_of_interest})
+  # store the info
+  key=$(echo $name | tr '_' ',' |tr -d '.')
+  #add arch to variant info to key
+  key="${key},$(arch)"
+  echo "# ${key}" >> $data_file
+  other_line_col=$(mktemp -t base-XXXXXXXXXX)
+  # strip out the beginning of the absolute patch with first sed
+  # strip out the variant with the second sed
+  $DIR/line_column_info.py ${broot}/${foi_dir}/${foi} | sed -e "s|${broot}||" |sort | uniq > ${other_line_col}
+  diff -u ${base_line_col} ${other_line_col} >> $data_file
+}
+
+#find directory for baseline builds
+find_baseline_dir()
+{
+  local compiler="gcc"
+  local options="-O2 -g $(find_base_optflags)"
+  # the package name might be package+option1+option2... strip the options off
+  local package=$(echo "$1"| awk -F+ '{ print $1}')
+  unset spack_args
+  spack_args=("find" "-px" "${package}"
+	      "cflags=${options}"
+	      "cxxflags=${options}"
+	      "%${compiler}"
+	      "target=$(arch)" )
+  echo "spack ${spack_args[@]}"
+  baseline_dir=$(spack "${spack_args[@]}" | grep "${package}@" |grep -o "/[[:print:]]*")
+  if test -z ${baseline_dir}; then
+      echo "Unable to find $package baseline directory"
+      exit 1
+  fi
+}
+
+exec_base_name=$(basename $2)
+pwd=$(pwd)
+data_file="$(pwd)/${exec_base_name}_spack_lines_file.txt"
+rm -rf ${data_file}
+#find base line for abicheck
+find_baseline_dir "$1"
+base_line_col=$(mktemp -t base-XXXXXXXXXX)
+$DIR/line_column_info.py ${baseline_dir}/${2} | sed -e "s|${baseline_dir}||" | sort | uniq > ${base_line_col}
+driver "$1" "$2" "analyze_executable"
