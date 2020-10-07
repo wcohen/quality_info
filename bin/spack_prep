@@ -7,8 +7,8 @@ git checkout releases/v0.15
 spack compiler find
 
 # use the gfortran for clang builds
-cat ~/.spack/linux/compilers.yaml | sed 's,f77: .*,f77: /usr/bin/gfortran,' | sed 's,fc: .*,fc: /usr/bin/gfortran,' > ~/.spack/linux/compilers.yaml.new
-mv ~/.spack/linux/compilers.yaml.new ~/.spack/linux/compilers.yaml
+sed -i 's,f77:.*,f77: /usr/bin/gfortran,'  ~/.spack/linux/compilers.yaml
+sed -i 's,fc:.*,fc: /usr/bin/gfortran,' ~/.spack/linux/compilers.yaml
 
 # get linux distribution
 distro=$(cat ~/.spack/linux/compilers.yaml|grep "operating_system:"|sed 's/ *operating_system: //'|uniq)
