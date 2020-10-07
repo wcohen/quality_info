@@ -6,3 +6,8 @@ auto="automake autoconf"
 hpc_support="openblas-devel openmpi-devel"
 dnf install -y ${compilers} ${tools} ${auto} ${hpc_support}
 dnf groupinstall -y "Development Tools"
+
+# This is hack to allow spack to find the include files where it expects
+# https://github.com/spack/spack/issues/12520 mentions Red Hat
+# packaging issue with openmpi
+ln -s /usr/include/openmpi-x86_64 /usr/lib64/openmpi/include

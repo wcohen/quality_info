@@ -14,7 +14,7 @@ needed to store the dozens of variant compiles.
 
     sudo dnf install git -y
     git clone https://github.com/wcohen/quality_info.git
-    export PATH=~/quality_info/bin/:$PATH
+    export PATH=~/quality_info/bin/:/usr/lib64/openmpi/bin:$PATH
     sudo ./quality_info/bin/spack_rpms
     ./quality_info/bin/spack_prep
     . spack/share/spack/setup-env.sh
