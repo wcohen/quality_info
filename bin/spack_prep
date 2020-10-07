@@ -21,36 +21,41 @@ cat > ~/.spack/packages.yaml << EOF
 packages:
   bzip2:
     paths:
-      bzip2@1.0.6%gcc@9.2.1 arch=linux-${distro}-${arch}: /usr/bin/bzip2
-      bzip2@1.0.6%clang@8.0.0 arch=linux-${distro}-${arch}: /usr/bin/bzip2
+      bzip2@1.0.6%gcc@10.2.1 arch=linux-${distro}-${arch}: /usr/bin/bzip2
+      bzip2@1.0.6%clang@10.0.0 arch=linux-${distro}-${arch}: /usr/bin/bzip2
   flex:
     paths:
-      flex@2.6.4%gcc@9.2.1 arch=linux-${distro}-${arch}: /usr/bin/flex
-      flex@2.6.4%clang@8.0.0 arch=linux-${distro}-${arch}: /usr/bin/flex
+      flex@2.6.4%gcc@10.2.1 arch=linux-${distro}-${arch}: /usr/bin/flex
+      flex@2.6.4%clang@10.0.0 arch=linux-${distro}-${arch}: /usr/bin/flex
   bison:
     paths:
-      bison@3.0.5%gcc@9.2.1 arch=linux-${distro}-${arch}: /usr/bin/bison
-      bison@3.0.5%clang@8.0.0 arch=linux-${distro}-${arch}: /usr/bin/bison
+      bison@3.0.5%gcc@10.2.1 arch=linux-${distro}-${arch}: /usr/bin/bison
+      bison@3.0.5%clang@10.0.0 arch=linux-${distro}-${arch}: /usr/bin/bison
   m4:
     paths:
-      m4@1.4.18%gcc@9.2.1 arch=linux-${distro}-${arch}: /usr/bin/m4
-      m4@1.4.18%clang@8.0.0 arch=linux-${distro}-${arch}: /usr/bin/m4
+      m4@1.4.18%gcc@10.2.1 arch=linux-${distro}-${arch}: /usr/bin/m4
+      m4@1.4.18%clang@10.0.0 arch=linux-${distro}-${arch}: /usr/bin/m4
   tar:
     paths:
-      tar@1.30%gcc@9.2.1 arch=linux-${distro}-${arch}: /usr/bin/tar
-      tar@1.30%clang@8.0.0 arch=linux-${distro}-${arch}: /usr/bin/tar
+      tar@1.30%gcc@10.2.1 arch=linux-${distro}-${arch}: /usr/bin/tar
+      tar@1.30%clang@10.0.0 arch=linux-${distro}-${arch}: /usr/bin/tar
   openblas:
     paths:
-      openblas@0.3.3%gcc@9.2.1 arch=linux-${distro}-${arch}: /
-      openblas@0.3.3%clang@8.0.0 arch=linux-${distro}-${arch}: /
-  openmpi:
-    paths:
-      openmpi@3.1.4%gcc@9.2.1 arch=linux-${distro}-${arch}: /usr/lib64/openmpi
-      openmpi@3.1.4%clang@8.0.0 arch=linux-${distro}-${arch}: /usr/lib64/openmpi
-      openmpi@3.1.3%gcc@9.2.1 arch=linux-${distro}-${arch}: /usr/lib64/openmpi
-      openmpi@3.1.3%clang@8.0.0 arch=linux-${distro}-${arch}: /usr/lib64/openmpi
+      openblas@0.3.10%gcc@10.2.1 arch=linux-${distro}-${arch}: /
+      openblas@0.3.10%clang@10.0.0 arch=linux-${distro}-${arch}: /
   cmake:
     paths:
-      cmake@3.12.3%gcc@9.2.1 arch=linux-${distro}-${arch}: /
-      cmake@3.12.3%clang@8.0.0 arch=linux-${distro}-${arch}: /
+      cmake@3.12.3%gcc@10.2.1 arch=linux-${distro}-${arch}: /
+      cmake@3.12.3%clang@10.0.0 arch=linux-${distro}-${arch}: /
+      cmake@3.17.4: /usr
+  openmpi:
+    buildable: false
+    paths:
+      openmpi@3.1.6%gcc@10.2.1 arch=linux-${distro}-${arch}: /usr/lib64/openmpi
+      openmpi@3.1.6%clang@10.0.0 arch=linux-${distro}-${arch}: /usr/lib64/openmpi
+  zlib:
+    buildable: false
+    paths:
+      zlib@1.2.11%gcc@10.2.1 arch=linux-${distro}-${arch}: /
+      zlib@1.2.11%clang@10.0.0 arch=linux-${distro}-${arch}: /
 EOF
