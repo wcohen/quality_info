@@ -15,8 +15,8 @@ needed to store the dozens of variant compiles.
     sudo dnf install git -y
     git clone https://github.com/wcohen/quality_info.git
     export PATH=~/quality_info/bin/:$PATH
-    sudo quality_info/bin/spack_rpms 
-    sudo quality_info/bin/spack_prep
+    sudo ./quality_info/bin/spack_rpms
+    ./quality_info/bin/spack_prep
     . spack/share/spack/setup-env.sh
 
 # Building spack package variants
