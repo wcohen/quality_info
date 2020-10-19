@@ -1,5 +1,5 @@
 GCCXXFLAGS=-fvar-tracking-assignments -gstatement-frontiers -gvariable-location-views
-CXXFLAGS=-g3 -std=c++17 -save-temps
+CXXFLAGS=-g -std=c++17 -save-temps
 LDFLAGS=-L /usr/lib64/dyninst \
 	-l parseAPI -l symtabAPI -l instructionAPI \
 	-l tbb -l common
