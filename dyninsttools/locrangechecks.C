@@ -31,6 +31,32 @@ enum exit_codes {
 
 ostream *errfile;
 
+void output_entry(localVar *j, VariableLocation k)
+{
+	printf("%s [%x, %x] ", j->getName().c_str(), k.lowPC, k.hiPC);
+	switch (k.stClass){
+	case storageAddr:
+		switch (k.refClass) {
+		case storageRef: printf("*(%d)", k.frameOffset); break;
+		case storageNoRef: printf("(%d)", k.frameOffset); break;
+		}
+		break;
+	case storageReg:
+		switch (k.refClass) {
+		case storageRef: printf("(%s)", k.mr_reg.name().c_str()); break;
+		case storageNoRef: printf("%s", k.mr_reg.name().c_str()); break;
+		}
+		break;
+	case storageRegOffset:
+		switch (k.refClass) {
+		case storageRef: printf("*%d(%s)", k.frameOffset, k.mr_reg.name().c_str()); break;
+		case storageNoRef: printf("%d(%s)", k.frameOffset, k.mr_reg.name().c_str()); break;
+		}
+		break;
+	}
+	printf("\n");
+}
+
 int main(int argc, char **argv){
   //Name the object file to be parsed:
   std::string file;
@@ -59,8 +85,6 @@ int main(int argc, char **argv){
 
   //iterate through each of the the functions
   for( auto f: co->funcs()) {
-	  printf("# %s\n", f->name().c_str());
-
 	  // List of all instruction in the function
 	  Block::Insns func_insns;
 
@@ -89,6 +113,9 @@ int main(int argc, char **argv){
 	  Address func_end = func_start + func_sym->getSize();
 	  func_insns[func_end] = nothing;
 
+	  printf ("# %s [%x,%x]\n",
+		  f->name().c_str(), func_start, func_end);
+
 	  // now get list of locations for function
 	  vector <localVar *> lvars;
 	  func_sym->getParams(lvars);
@@ -96,18 +123,26 @@ int main(int argc, char **argv){
 	  for(auto j: lvars) {
 	         vector<VariableLocation> &lvlocs=j->getLocationLists();
 		 for(auto k: lvlocs) {
- 			 // check that each location region is reasonable
-			 cout << "name=" << j->getName()
-			      << " lowPC=" << hex << k.lowPC
-			      << " hiPC=" << hex << k.hiPC
-			      << " stClass=" << k.stClass
-			      << " refClass=" << k.refClass
-			      << endl;
-			 // 1) begin and end within function or global (don't span function boundaries)
+			 #if 0
+			 // Dyninst lumps .cold, other variants, and
+			 // the regular func info together.
+			 // just focus on the elements that have something
+			 // within the bounds of the this func.
+			 if (!( (func_start <= k.lowPC && k.lowPC <= func_end)
+				|| (func_start <= k.hiPC && k.hiPC <= func_end) ))
+				 continue;
+			 #endif
 			 if (k.lowPC == 0 || k.hiPC ==-1){
 				 // global variable always valid
+				 // not going to be concerned about that.
 				 continue;
 			 }
+			 output_entry(j, k);
+			 #if 0
+			 // Cannot do these checks because .cold and other
+			 // disjoint regions of code grouped in same symbol
+			 // check that each location region is reasonable
+			 // 1) begin and end within function or global (don't span function boundaries)
 			 if (k.lowPC < func_start || k.lowPC > func_end) {
 				 printf ("name = %s, k.lowPC=%p outside function\n",
 					 j->getName().c_str(), k.lowPC);
@@ -126,6 +161,7 @@ int main(int argc, char **argv){
 				 printf ("name = %s, k.hiPC=%p not valid boundary\n",
 				 j->getName().c_str(), k.hiPC);
 			 }
+			 #endif
 			 // 3) boundaries  match up with a read or a write operations
 			 // use the dyninst instructionAPI to determine the operations
 			 // use the dyninst symtabAPI to determine where location is
