@@ -123,15 +123,14 @@ int main(int argc, char **argv){
 	  for(auto j: lvars) {
 	         vector<VariableLocation> &lvlocs=j->getLocationLists();
 		 for(auto k: lvlocs) {
-			 #if 0
 			 // Dyninst lumps .cold, other variants, and
 			 // the regular func info together.
 			 // just focus on the elements that have something
 			 // within the bounds of the this func.
-			 if (!( (func_start <= k.lowPC && k.lowPC <= func_end)
-				|| (func_start <= k.hiPC && k.hiPC <= func_end) ))
+			 bool lowinrange = func_start <= k.lowPC && k.lowPC <= func_end;
+			 bool hiinrange = func_start <= k.hiPC && k.hiPC <= func_end;
+			 if (  !lowinrange && !hiinrange)
 				 continue;
-			 #endif
 			 if (k.lowPC == 0 || k.hiPC ==-1){
 				 // global variable always valid
 				 // not going to be concerned about that.
