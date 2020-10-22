@@ -100,6 +100,12 @@ int main(int argc, char **argv){
 		  bb->getInsns(insns);
 		  for (auto insn_iter : insns) {
 			  func_insns.insert(insn_iter);
+			  // Treat calls as special as valid to have range inside
+			  if (insn_iter.second.getCategory() == InstructionAPI::c_CallInsn)
+				  for(auto i=1; i<insn_iter.second.size(); ++i){
+					  pair <const long unsigned int, Dyninst::InstructionAPI::Instruction> caller(i+insn_iter.first, insn_iter.second);
+					  func_insns.insert(caller);
+				  }
 		  }
 	  }
 	  SymtabAPI::Function *func_sym;
@@ -137,7 +143,6 @@ int main(int argc, char **argv){
 				 continue;
 			 }
 			 output_entry(j, k);
-			 #if 0
 			 // Cannot do these checks because .cold and other
 			 // disjoint regions of code grouped in same symbol
 			 // check that each location region is reasonable
@@ -151,16 +156,19 @@ int main(int argc, char **argv){
 					 j->getName().c_str(), k.hiPC);
 			 }
 			 
-			 // 2) begin and end are on instruction boundaries
+			 // 2) begin on instruction boundaries
 			 if (func_insns.find(k.lowPC) == func_insns.end()) {
 				 printf ("name = %s, k.lowPC=%p not valid boundary\n",
 				 j->getName().c_str(), k.lowPC);
 			 }
+			 // 2a) end on instruction boundaries
+			 //     Calls are special. Need to distiguish before/during/afer the call.
+			 //     (http://lists.dwarfstd.org/pipermail/dwarf-discuss-dwarfstd.org/2018-December/004509.html)
+			 //     This is taken care of with the setup of list of valid end points
 			 if (func_insns.find(k.hiPC) == func_insns.end()) {
 				 printf ("name = %s, k.hiPC=%p not valid boundary\n",
 				 j->getName().c_str(), k.hiPC);
 			 }
-			 #endif
 			 // 3) boundaries  match up with a read or a write operations
 			 // use the dyninst instructionAPI to determine the operations
 			 // use the dyninst symtabAPI to determine where location is
