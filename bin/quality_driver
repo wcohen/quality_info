@@ -4,6 +4,11 @@ find_base_optflags () {
     #remove -g and -O2
     _optflags=${orig_optflags/-g/}
     _optflags=${_optflags/-O2/}
+    # Remove LTO options in default f33
+    _optflags="${_optflags/-ffat-lto-objects/}"
+    _optflags="${_optflags/-flto=auto/}"
+    _optflags="${_optflags/-flto=jobserver/}"
+    _optflags="${_optflags/-flto/}"
     # turn off compiler options as workarounds for llvm
 #  _optflags="${_optflags%-specs=/usr/lib/rpm/redhat/redhat-hardened-cc1}"
 #  _optflags="${_optflags%-specs=/usr/lib/rpm/redhat/redhat-annobin}"
