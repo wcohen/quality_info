@@ -36,6 +36,11 @@ def find_debuginfo(fileointerest):
 
     for output in process.stdout:
         output = re.sub(r'\n', "", output)
+        # F33 dwarfdump has "Filename ..." as possible output
+        if re.search(r'Filename by debuglink is ', output):
+            possible_debug = re.sub(r'Filename by debuglink is ', "", output)
+            if os.path.isfile(possible_debug):
+                good_debug = possible_debug
         if re.search(r'  \[\d+\] ', output):
             possible_debug = re.sub(r'  \[\d+\] ', "", output)
             if os.path.isfile(possible_debug):
