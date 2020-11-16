@@ -31,13 +31,13 @@ Just going to focus on registers and assume that values in memory are "good to g
 Outline of how to implement the analysis:
 
 * for each function
- * get location lists
-   * for each location list entry
-    * if stored in register
-     * add location list entry range in a boost ICL for the the register
- * for each instruction
-  * for each register that is dead
-   * check to see if there a location list item in that register
+  * get location lists
+    * for each location list entry
+      * if stored in register
+        * add location list entry range in a boost ICL for the the register
+  * for each instruction
+    * for each register that is dead
+      * check to see if there a location list item in that register
 
 
 ## Multiple variables associated with register
@@ -50,14 +50,14 @@ change on the other.
 Outline of how to implement the analysis:
 
 * for each function
- * get location lists
+  * get location lists
   * for each location list entry
-   * if stored in register
-    * add location list entry range in a boost ICL for the the register
- * for each register
-  * iterate over the ranges
-   * if more than one element in set
-    * have multiple variables associated with reg
+    * if stored in register
+      * add location list entry range in a boost ICL for the the register
+  * for each register
+    * iterate over the ranges
+      * if more than one element in set
+        * have multiple variables associated with reg
 
 
 ## Multiple locations for a variable
@@ -68,13 +68,13 @@ However, maybe this is something that the compiler gets wrong and
 might be something to check.
 
 * for each function
- * get location lists
+  * get location lists
   * for each location variabe list entry
-   * add location list entry range in a boost ICL for the the register
- * for each variable loc list
-  * iterate over the ranges
-   * if more than one element in interval set
-    * have multiple locations describing variable
+    * add location list entry range in a boost ICL for the the register
+  * for each variable loc list
+    * iterate over the ranges
+      * if more than one element in interval set
+        * have multiple locations describing variable
 
 ## Multiple value for a variable live at same time
 
@@ -83,8 +83,6 @@ code completes execution before the next line of code is started.
 However, the compiler may schedule instructions from multiple lines of
 code togeter blurring where the one value for a variable is dead and
 another value for the same variable is live.
-
-
 
 
 
