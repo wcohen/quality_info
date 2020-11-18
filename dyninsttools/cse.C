@@ -97,29 +97,23 @@ int main(int argc, char **argv){
 	  }
 
 	  bool printed_name = false;
-	  std::map<MachRegister, interval_map<Address, varset> >::iterator it;
-	  for (it=register_loclist.begin(); it!=register_loclist.end(); ++it){
-		  interval_map<Address, varset>::iterator it2 = it->second.begin();
-		  while(it2 != it->second.end())
-		  {
+	  for (auto it: register_loclist){
+		  for(auto it2: it.second){
 			  // skip if there is 1 or fewer variables in register
-			  if (it2->second.size() > 1) {
+			  if (it2.second.size() > 1) {
 				  if (!printed_name) {
 					  cout << f->name() << endl;
 					  printed_name = true;
 				  }
-				  interval<Address>::type where = it2->first;
+				  interval<Address>::type where = it2.first;
 				  // What variables in register in Address interval?
-				  cout << std::hex << where << " " << it->first.name();
+				  cout << std::hex << where << " " << it.first.name();
 				  cout << " ";
-				  std::set<localVar *>::iterator it3 = it2->second.begin();
-				  while(it3 != it2->second.end()) {
-					  cout << (*it3)->getName() << " ";
-					  ++it3;
+				  for(auto it3: it2.second){
+					  cout << it3->getName() << " ";
 				  }
 				  cout << endl;
 			  }
-			  ++it2;
 		  }
 	  }
 	  
