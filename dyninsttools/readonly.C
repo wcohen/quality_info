@@ -96,30 +96,6 @@ int main(int argc, char **argv){
 		 }
 	  }
 
-
-	  #if 0
-	  std::map<MachRegister, interval_map<Address, varset> >::iterator it;
-	  for (it=register_loclist.begin(); it!=register_loclist.end(); ++it){
-		  cout << "register " << it->first.name() << endl;
-		  // print out the location lists associated
-		  interval_map<Address, varset>::iterator it2 = it->second.begin();
-		  while(it2 != it->second.end())
-		  {
-			  interval<Address>::type where = it2->first;
-			  // What variables in register in Address interval?
-			  cout << std::hex << where << ": ";
-			  // print out the variables
-			  std::set<localVar *>::iterator it3 = it2->second.begin();
-			  while(it3 != it2->second.end()) {
-				  cout << (*it3)->getName() << " ";
-				  ++it3;
-			  }
-			  cout << endl;
-			  ++it2;
-		  }
-	  }
-	  #endif
-	  
 	  LivenessAnalyzer la(f->obj()->cs()->getAddressWidth());
 
 	  printf("# %s\n", f->name().c_str());
