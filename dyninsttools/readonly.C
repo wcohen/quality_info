@@ -143,12 +143,11 @@ int main(int argc, char **argv){
 			  Location loc(f, i);
 			  
 			  // Query about variables that use register at instruction entry
-			  std::map<MachRegister, interval_map<Address, varset> >::iterator it;
-			  for (it=register_loclist.begin(); it!=register_loclist.end(); ++it){
+			  for (auto it: register_loclist){
 				  // if nothing in register at time, skip
-				  if (it->second.find(curAddr)->second.size()==0) continue;
+				  if (it.second.find(curAddr)->second.size()==0) continue;
 				  bool live;
-				  MachRegister reg = it->first;
+				  MachRegister reg = it.first;
 				  if (!la.query(loc, LivenessAnalyzer::Before, reg, live)) {
 					  printf("Cannot look up live registers at instruction entry\n");
 				  }
