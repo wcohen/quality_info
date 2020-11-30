@@ -103,6 +103,25 @@ int main(int argc, char **argv){
 
 	  bool printed_name = false;
 	  
+	  #if 1
+	  cout << "dump of address intervals" << endl;
+	  for (auto it: register_loclist) {
+		  cout << "register " << it.first.name() << endl;
+		  // print out the location lists associated
+		  for (auto it2: it.second) {
+			  interval<Address>::type where = it2.first;
+			  // What variables in register in Address interval?
+			  cout << std::hex << where << ": ";
+			  // print out the variables
+			  for (auto it3: it2.second) {
+				  cout << (it3)->getName() << " ";
+			  }
+			  cout << endl;
+		  }
+	  }
+	  cout << "end of dump" << endl;
+	  #endif
+
 	  // go through each block
 	  for (auto b = f->blocks().begin(); b != f->blocks().end(); ++b) {
 		  Block *bb = *b;
@@ -120,23 +139,28 @@ int main(int argc, char **argv){
 			  
 			  // Query about variables that use register at instruction entry
 			  for (auto it: register_loclist){
-				  // if nothing in register at time, skip
-				  if (it.second.find(curAddr)->second.size()==0) continue;
-				  bool live;
 				  MachRegister reg = it.first;
+				  bool live;
+
+
+				  // if nothing in register at time, skip
+				  auto range = it.second.find(curAddr);
+				  if (range==it.second.end()){
+					  continue;
+				  }
 				  if (!la.query(loc, LivenessAnalyzer::Before, reg, live)) {
 					  printf("Cannot look up live registers at instruction entry\n");
 				  }
 
 				  if (!live) {
 					  // value not used again, so it is read only
-					  printf("%x %s readonly\n",
+					  printf("%x %s readonly ",
 						 insn_iter.first,
 						 reg.name().c_str());
-				  } else {
-					  printf("%x %s write has effect\n",
-						 insn_iter.first,
-						 reg.name().c_str());
+					  for (auto it3: range->second) {
+						  cout << (it3)->getName() << " ";
+					  }
+					  cout << endl;
 				  }
 			  }
 
