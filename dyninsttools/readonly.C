@@ -142,7 +142,6 @@ int main(int argc, char **argv){
 				  MachRegister reg = it.first;
 				  bool live;
 
-
 				  // if nothing in register at time, skip
 				  auto range = it.second.find(curAddr);
 				  if (range==it.second.end()){
@@ -163,7 +162,6 @@ int main(int argc, char **argv){
 					  cout << endl;
 				  }
 			  }
-
 		  }
 	  }
   }
