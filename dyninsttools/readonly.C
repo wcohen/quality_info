@@ -25,6 +25,7 @@ using namespace ParseAPI;
 using namespace boost::icl;
 
 typedef std::set<localVar *> varset;
+typedef std::map<MachRegister, interval_map<Address, varset> > reg_locs;
 
 enum exit_codes {
 		 EXIT_OK=0,
@@ -44,7 +45,33 @@ bool inregister(localVar *j, VariableLocation k)
 	return ((k.stClass==storageReg) && (k.refClass==storageNoRef));
 }
 
+bool interesting_loc(Address addr)
+{
+	return true;
+}
+
+void dump_reg_intervals(reg_locs &register_loclist)
+{
+	cout << "dump of address intervals" << endl;
+	for (auto it: register_loclist) {
+		cout << "register " << it.first.name() << endl;
+		// print out the location lists associated
+		for (auto it2: it.second) {
+			interval<Address>::type where = it2.first;
+			// What variables in register in Address interval?
+			cout << std::hex << where << ": ";
+			// print out the variables
+			for (auto it3: it2.second) {
+				cout << (it3)->getName() << " ";
+			}
+			cout << endl;
+		}
+	}
+	cout << "end of dump" << endl;
+}
+
 int main(int argc, char **argv){
+  bool dbg_reglocs=false;
   //Name the object file to be parsed:
   std::string file;
   errfile=&cerr;
@@ -78,7 +105,7 @@ int main(int argc, char **argv){
 		  continue;
 	  }
 	  // interval containers for registers
-	  std::map<MachRegister, interval_map<Address, varset> > register_loclist;
+	  reg_locs register_loclist;
 	  
 	  // now get list of locations for function
 	  vector <localVar *> lvars;
@@ -102,25 +129,9 @@ int main(int argc, char **argv){
 	  la.analyze(f);
 
 	  bool printed_name = false;
-	  
-	  #if 1
-	  cout << "dump of address intervals" << endl;
-	  for (auto it: register_loclist) {
-		  cout << "register " << it.first.name() << endl;
-		  // print out the location lists associated
-		  for (auto it2: it.second) {
-			  interval<Address>::type where = it2.first;
-			  // What variables in register in Address interval?
-			  cout << std::hex << where << ": ";
-			  // print out the variables
-			  for (auto it3: it2.second) {
-				  cout << (it3)->getName() << " ";
-			  }
-			  cout << endl;
-		  }
-	  }
-	  cout << "end of dump" << endl;
-	  #endif
+
+	  if (dbg_reglocs)
+		  dump_reg_intervals(register_loclist);
 
 	  // go through each block
 	  for (auto b = f->blocks().begin(); b != f->blocks().end(); ++b) {
@@ -133,6 +144,10 @@ int main(int argc, char **argv){
 			  Instruction curInsn = insn_iter.second;
 			  Address curAddr = insn_iter.first;
 
+			  // FIXME Determine whether this is a location care about
+			  if (!interesting_loc(curAddr))
+				  continue;
+
 			  // construct a liveness query location
 			  InsnLoc i(bb, curAddr, curInsn);
 			  Location loc(f, i);
@@ -144,9 +159,9 @@ int main(int argc, char **argv){
 
 				  // if nothing in register at time, skip
 				  auto range = it.second.find(curAddr);
-				  if (range==it.second.end()){
+				  if (range==it.second.end())
 					  continue;
-				  }
+
 				  if (!la.query(loc, LivenessAnalyzer::Before, reg, live)) {
 					  printf("Cannot look up live registers at instruction entry\n");
 				  }
