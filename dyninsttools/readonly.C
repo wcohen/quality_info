@@ -38,14 +38,30 @@ enum exit_codes {
 		 EXIT_NOFILE=7
 };
 
-ostream *errfile;
+class session_info
+{
+public:
+  session_info();
+  bool dbg_reglocs;
+  //Name the object file to be parsed:
+  std::string file;
+  SymtabCodeSource *sts;
+  CodeObject *co;
+  Symtab *syms;
+};
+
+session_info::session_info():
+	dbg_reglocs(false),
+	syms(NULL)
+{
+}
 
 bool inregister(localVar *j, VariableLocation k)
 {
 	return ((k.stClass==storageReg) && (k.refClass==storageNoRef));
 }
 
-bool interesting_loc(Address addr)
+bool interesting_loc(session_info &session, Address addr)
 {
 	return true;
 }
@@ -70,37 +86,39 @@ void dump_reg_intervals(reg_locs &register_loclist)
 	cout << "end of dump" << endl;
 }
 
-int main(int argc, char **argv){
-  bool dbg_reglocs=false;
-  //Name the object file to be parsed:
-  std::string file;
-  errfile=&cerr;
-  SymtabCodeSource *sts;
-  CodeObject *co;
-  Symtab *syms = NULL;
 
-  file=argv[1];
-  if (file.length() == 0) {
+exit_codes process_options(int argc, char **argv, session_info &session)
+{
+  session.file=argv[1];
+  if (session.file.length() == 0) {
 	  exit(EXIT_NOFILE);
   }
+  return(EXIT_OK);
+}
 
+exit_codes process_binaries(session_info &session)
+{
   // Create a new binary code object from the filename argument
-  sts = new SymtabCodeSource( argv[1] );
-  if( !sts )
-    exit(EXIT_MODULE);
-  co = new CodeObject( sts );
-  if( !co )
-    exit(EXIT_MODULE);
-  if(!Symtab::openFile(syms, argv[1]))
-    exit(EXIT_MODULE);
+  session.sts = new SymtabCodeSource( strdup(session.file.c_str()) );
+  if( !session.sts )
+    return(EXIT_MODULE);
+  session.co = new CodeObject( session.sts );
+  if( !session.co )
+    return(EXIT_MODULE);
+  if(!Symtab::openFile(session.syms, session.file))
+    return(EXIT_MODULE);
 
   // Parse the binary
-  co->parse();
+  session.co->parse();
+  return(EXIT_OK);
+}
 
+exit_codes analyze_binaries(session_info &session)
+{
   //iterate through each of the the functions
-  for( auto f: co->funcs()) {
+  for( auto f: session.co->funcs()) {
 	  SymtabAPI::Function *func_sym;
-	  if (!syms->findFuncByEntryOffset(func_sym, f->addr())) {
+	  if (!session.syms->findFuncByEntryOffset(func_sym, f->addr())) {
 		  cerr << "unable to find " << f->name() << endl;
 		  continue;
 	  }
@@ -130,7 +148,7 @@ int main(int argc, char **argv){
 
 	  bool printed_name = false;
 
-	  if (dbg_reglocs)
+	  if (session.dbg_reglocs)
 		  dump_reg_intervals(register_loclist);
 
 	  // go through each block
@@ -145,7 +163,7 @@ int main(int argc, char **argv){
 			  Address curAddr = insn_iter.first;
 
 			  // FIXME Determine whether this is a location care about
-			  if (!interesting_loc(curAddr))
+			  if (!interesting_loc(session, curAddr))
 				  continue;
 
 			  // construct a liveness query location
@@ -180,4 +198,20 @@ int main(int argc, char **argv){
 		  }
 	  }
   }
+  return(EXIT_OK);
+}
+
+int main(int argc, char **argv){
+  session_info session;
+
+  exit_codes options_status = process_options(argc, argv, session);
+  if ( options_status != EXIT_OK)
+	  exit(options_status);
+
+  exit_codes binaries_status = process_binaries(session);
+  if ( binaries_status != EXIT_OK)
+	  exit(binaries_status);
+
+  exit_codes analyze_status = analyze_binaries(session);
+  exit(analyze_status);
 }
