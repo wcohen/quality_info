@@ -8,6 +8,7 @@
  * the dyninst dataflowAPI documentation liveness Analysis example.
  */
 
+#include <argp.h>
 #include <map>
 #include <boost/icl/interval_map.hpp>
 
@@ -38,10 +39,8 @@ enum exit_codes {
 		 EXIT_NOFILE=7
 };
 
-class session_info
+struct session_info
 {
-public:
-  session_info();
   bool dbg_reglocs;
   //Name the object file to be parsed:
   std::string file;
@@ -49,12 +48,6 @@ public:
   CodeObject *co;
   Symtab *syms;
 };
-
-session_info::session_info():
-	dbg_reglocs(false),
-	syms(NULL)
-{
-}
 
 bool inregister(localVar *j, VariableLocation k)
 {
@@ -86,13 +79,67 @@ void dump_reg_intervals(reg_locs &register_loclist)
 	cout << "end of dump" << endl;
 }
 
+extern const char *argp_program_version;
+extern const char *argp_program_bug_address;
+
+/* Program documentation. */
+extern char doc[];
+
+/* A description of the arguments we accept. */
+static char args_doc[] = "INPUT_FILE";
+
+/* The options we understand. */
+static struct argp_option options[] = {
+  {"debug",  'd', 0,      0,  "Produce additional debug output" },
+  { 0 }
+};
+
+/* Parse a single option. */
+static error_t
+parse_opt (int key, char *arg, struct argp_state *state)
+{
+  /* Get the input argument from argp_parse, which we
+     know is a pointer to our arguments structure. */
+	struct session_info *arguments = (struct session_info *) state->input;
+
+  switch (key)
+    {
+    case 'd':
+      arguments->dbg_reglocs = true;
+      break;
+
+    case ARGP_KEY_ARG:
+      if (state->arg_num >= 1)
+        /* Too many arguments. */
+        argp_usage (state);
+
+      arguments->file = arg;
+
+      break;
+
+    case ARGP_KEY_END:
+      if (state->arg_num < 1)
+        /* Not enough arguments. */
+        argp_usage (state);
+      break;
+
+    default:
+      return ARGP_ERR_UNKNOWN;
+    }
+  return 0;
+}
+
+/* Our argp parser. */
+static struct argp argp = { options, parse_opt, args_doc, doc };
 
 exit_codes process_options(int argc, char **argv, session_info &session)
 {
-  session.file=argv[1];
-  if (session.file.length() == 0) {
-	  exit(EXIT_NOFILE);
-  }
+  /* Set default values. */
+  session.dbg_reglocs = false;
+
+  /* Figure out settings to put into session */
+  argp_parse (&argp, argc, argv, 0, 0, &session);
+
   return(EXIT_OK);
 }
 
@@ -112,6 +159,14 @@ exit_codes process_binaries(session_info &session)
   session.co->parse();
   return(EXIT_OK);
 }
+
+/* Code above will go in library and code below will stay in this file */
+
+const char *argp_program_version = "readonly 0.1";
+const char *argp_program_bug_address = "https://github.com/wcohen/quality_info/issues";
+
+/* Program documentation. */
+char doc[] = "readonly -- examine binary and debuginfo to determine where writes to variables have no effect";
 
 exit_codes analyze_binaries(session_info &session)
 {
