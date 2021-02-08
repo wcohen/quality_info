@@ -44,19 +44,28 @@ struct session_info
   bool dbg_reglocs;
   //Name the object file to be parsed:
   std::string file;
+  vector<std::string> filters;
   SymtabCodeSource *sts;
   CodeObject *co;
   Symtab *syms;
+  interval_map<Address, std::string > interest_reason;
 };
+
+static string noreason("");
+static string reason("reason");
 
 bool inregister(localVar *j, VariableLocation k)
 {
 	return ((k.stClass==storageReg) && (k.refClass==storageNoRef));
 }
 
-bool interesting_loc(session_info &session, Address addr)
+string interesting_loc(session_info &session, Address addr)
 {
-	return true;
+	auto info=session.interest_reason.find(addr);
+	if (info==session.interest_reason.end()) {
+		return noreason;
+	}
+	return info->second;
 }
 
 void dump_reg_intervals(reg_locs &register_loclist)
@@ -91,6 +100,7 @@ static char args_doc[] = "INPUT_FILE";
 /* The options we understand. */
 static struct argp_option options[] = {
   {"debug",  'd', 0,      0,  "Produce additional debug output" },
+  {"filter",  'f', "FILTER", 0,  "Limit analysis to items that match filter" },
   { 0 }
 };
 
@@ -106,6 +116,10 @@ parse_opt (int key, char *arg, struct argp_state *state)
     {
     case 'd':
       arguments->dbg_reglocs = true;
+      break;
+
+    case 'f':
+      arguments->filters.push_back(arg);
       break;
 
     case ARGP_KEY_ARG:
@@ -160,6 +174,48 @@ exit_codes process_binaries(session_info &session)
   return(EXIT_OK);
 }
 
+void filter_function(session_info &session, string func, Address start, Address end)
+{
+	cout << "filter_function: " << func << " [" << hex << start << "," << hex << end << ")" << endl;
+	session.interest_reason.add(make_pair(interval<Address>::right_open(start, end), func));
+	return;
+}
+
+/* Default filter:
+   Start of each regular function
+   Start of each inlined function (need to determine which variables are args to function )
+ */
+void default_filters(session_info &session)
+{
+	/* Right now mark the entire regular function */
+	for( auto f: session.co->funcs()) {
+	  SymtabAPI::Function *func_sym;
+	  if (!session.syms->findFuncByEntryOffset(func_sym, f->addr())) {
+		  cerr << "unable to find " << f->name() << endl;
+		  continue;
+	  }
+	  filter_function(session, func_sym->getName(), f->addr(), f->addr()+func_sym->getSize());
+	}
+	return;
+}
+
+exit_codes process_filters(session_info &session)
+{
+	/* Go through each of the filters and see which addresses match */
+	for (auto filter : session.filters) {
+		cout << "filter: " << filter << endl;
+		/* line numbers */
+		/* function entry */
+		/* function return */
+	}
+	/* if no filters, just make default ones */
+	cout << "session.filters.size() " << session.filters.size() << endl;
+	if (session.filters.size() == 0) {
+		default_filters(session);
+	}
+	return(EXIT_OK);
+}
+
 /* Code above will go in library and code below will stay in this file */
 
 const char *argp_program_version = "readonly 0.1";
@@ -198,10 +254,7 @@ exit_codes analyze_binaries(session_info &session)
 
 	  LivenessAnalyzer la(f->obj()->cs()->getAddressWidth());
 
-	  printf("# %s\n", f->name().c_str());
 	  la.analyze(f);
-
-	  bool printed_name = false;
 
 	  if (session.dbg_reglocs)
 		  dump_reg_intervals(register_loclist);
@@ -217,13 +270,16 @@ exit_codes analyze_binaries(session_info &session)
 			  Instruction curInsn = insn_iter.second;
 			  Address curAddr = insn_iter.first;
 
-			  // FIXME Determine whether this is a location care about
-			  if (!interesting_loc(session, curAddr))
+			  // Determine whether this is a location care about
+			  string point_of_interest = interesting_loc(session, curAddr);
+			  if (point_of_interest == noreason)
 				  continue;
 
 			  // construct a liveness query location
 			  InsnLoc i(bb, curAddr, curInsn);
 			  Location loc(f, i);
+
+			  bool printed_reason = false;
 			  
 			  // Query about variables that use register at instruction entry
 			  for (auto it: register_loclist){
@@ -239,10 +295,15 @@ exit_codes analyze_binaries(session_info &session)
 					  printf("Cannot look up live registers at instruction entry\n");
 				  }
 
+				  /* print out info about filter match */
 				  if (!live) {
+					  if (!printed_reason) {
+						  printf("%s pc=0x%x\n", point_of_interest.c_str(),
+							 insn_iter.first);
+						  printed_reason = true;
+					  }
 					  // value not used again, so it is read only
-					  printf("%x %s readonly ",
-						 insn_iter.first,
+					  printf("  %s readonly ",
 						 reg.name().c_str());
 					  for (auto it3: range->second) {
 						  cout << (it3)->getName() << " ";
@@ -266,6 +327,10 @@ int main(int argc, char **argv){
   exit_codes binaries_status = process_binaries(session);
   if ( binaries_status != EXIT_OK)
 	  exit(binaries_status);
+
+  exit_codes filters_status = process_filters(session);
+  if ( filters_status != EXIT_OK)
+	  exit(filters_status);
 
   exit_codes analyze_status = analyze_binaries(session);
   exit(analyze_status);
