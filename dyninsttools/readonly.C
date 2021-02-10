@@ -42,6 +42,7 @@ enum exit_codes {
 struct session_info
 {
   bool dbg_reglocs;
+  bool dbg_filter;
   //Name the object file to be parsed:
   std::string file;
   vector<std::string> filters;
@@ -116,6 +117,7 @@ parse_opt (int key, char *arg, struct argp_state *state)
     {
     case 'd':
       arguments->dbg_reglocs = true;
+      arguments->dbg_filter = true;
       break;
 
     case 'f':
@@ -150,6 +152,7 @@ exit_codes process_options(int argc, char **argv, session_info &session)
 {
   /* Set default values. */
   session.dbg_reglocs = false;
+  session.dbg_filter = false;
 
   /* Figure out settings to put into session */
   argp_parse (&argp, argc, argv, 0, 0, &session);
@@ -176,7 +179,9 @@ exit_codes process_binaries(session_info &session)
 
 void filter_function(session_info &session, string func, Address start, Address end)
 {
-	cout << "filter_function: " << func << " [" << hex << start << "," << hex << end << ")" << endl;
+	if (session.dbg_filter) {
+		cout << "filter_function: " << func << " [" << hex << start << "," << hex << end << ")" << endl;
+	}
 	session.interest_reason.add(make_pair(interval<Address>::right_open(start, end), func));
 	return;
 }
@@ -201,7 +206,9 @@ exit_codes process_filters(session_info &session)
 {
 	/* Go through each of the filters and see which addresses match */
 	for (auto filter : session.filters) {
-		cout << "filter: " << filter << endl;
+		if (session.dbg_filter) {
+			cout << "filter: " << filter << endl;
+		}
 		// assume filter argument is just a function name
 		filter_find_funcs(session, filter);
 		// FIXME Handles these other kinds of probe locations:
@@ -210,7 +217,6 @@ exit_codes process_filters(session_info &session)
 		// function return
 		// inlined function entry
 	}
-	cout << "session.filters.size() " << session.filters.size() << endl;
 	// If no filters in options, just make defaults ones.
 	// One filter for each function using wildcard ("*").
 	if (session.filters.size() == 0) {
