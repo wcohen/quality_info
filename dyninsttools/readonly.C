@@ -181,22 +181,20 @@ void filter_function(session_info &session, string func, Address start, Address 
 	return;
 }
 
-/* Default filter:
-   Start of each regular function
-   Start of each inlined function (need to determine which variables are args to function )
- */
-void default_filters(session_info &session)
+void filter_find_funcs (session_info &session, string func_name)
 {
+	vector<SymtabAPI::Function *> functions_of_interest;
+	bool matches = session.syms->findFunctionsByName(functions_of_interest,
+					   func_name, anyName, true, true);
+
 	/* Right now mark the entire regular function */
-	for( auto f: session.co->funcs()) {
-	  SymtabAPI::Function *func_sym;
-	  if (!session.syms->findFuncByEntryOffset(func_sym, f->addr())) {
-		  cerr << "unable to find " << f->name() << endl;
-		  continue;
-	  }
-	  filter_function(session, func_sym->getName(), f->addr(), f->addr()+func_sym->getSize());
+	for (auto f: functions_of_interest) {
+		/* FIXME need to find location of inlined functions */
+		/* FIXME Make sure that the address ranges are reasonable */
+		Address start = f->getOffset();
+		Address end = start+f->getSize();
+		filter_function(session, f->getName(), start, end);
 	}
-	return;
 }
 
 exit_codes process_filters(session_info &session)
@@ -204,14 +202,19 @@ exit_codes process_filters(session_info &session)
 	/* Go through each of the filters and see which addresses match */
 	for (auto filter : session.filters) {
 		cout << "filter: " << filter << endl;
-		/* line numbers */
-		/* function entry */
-		/* function return */
+		// assume filter argument is just a function name
+		filter_find_funcs(session, filter);
+		// FIXME Handles these other kinds of probe locations:
+		// line numbers
+		// function entry
+		// function return
+		// inlined function entry
 	}
-	/* if no filters, just make default ones */
 	cout << "session.filters.size() " << session.filters.size() << endl;
+	// If no filters in options, just make defaults ones.
+	// One filter for each function using wildcard ("*").
 	if (session.filters.size() == 0) {
-		default_filters(session);
+		filter_find_funcs(session, "*");
 	}
 	return(EXIT_OK);
 }
