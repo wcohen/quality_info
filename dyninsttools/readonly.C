@@ -10,6 +10,7 @@
 
 #include <argp.h>
 #include <map>
+#include <regex>
 #include <boost/icl/interval_map.hpp>
 
 #include <dyninst/Symtab.h>
@@ -186,11 +187,15 @@ void filter_function(session_info &session, string func, Address start, Address 
 	return;
 }
 
-void filter_find_funcs (session_info &session, string func_name)
+void filter_find_funcs (session_info &session, string filter, string func)
 {
+	if (session.dbg_filter) {
+		cout << "filter_find_funcs: " << filter << endl;
+	}
 	vector<SymtabAPI::Function *> functions_of_interest;
 	bool matches = session.syms->findFunctionsByName(functions_of_interest,
-					   func_name, anyName, true, true);
+							 func, anyName,
+							 true, true);
 
 	/* Right now mark the entire regular function */
 	for (auto f: functions_of_interest) {
@@ -202,6 +207,52 @@ void filter_find_funcs (session_info &session, string func_name)
 	}
 }
 
+void filter_find_func_calls(session_info &session, string filter, string func)
+{
+	if (session.dbg_filter) {
+		cout << "filter_func_calls: " << filter << endl;
+	}
+	vector<SymtabAPI::Function *> functions_of_interest;
+	bool matches = session.syms->findFunctionsByName(functions_of_interest,
+							 func, anyName, true, true);
+
+	/* Just mark the first instruction of the function(s). */
+	for (auto f: functions_of_interest) {
+		Address start = f->getOffset();
+		filter_function(session, f->getName(), start, start);
+	}
+}
+
+void filter_find_statement(session_info &session, string filter, string file, int line)
+{
+	if (session.dbg_filter) {
+		cout << "filter_statement: " << filter << endl;
+	}
+	// FIXME doesn't handle wildcards for file or line numbers (or any function) filter.
+	std::vector<AddressRange> ranges;
+	bool found_lines = session.syms->getAddressRanges(ranges, file, line);
+
+	if (!found_lines) return;
+	for (auto f: ranges) {
+		cout << f << endl;
+	}
+}
+
+void filter_find_func_inline(session_info &session, string filter, string func)
+{
+	if (session.dbg_filter) {
+		cout << "filter_inline_func: " << filter << endl;
+	}
+	// FIXME Need to iterate through all the functions and look for inlined functions call sites.
+}
+
+static const std::regex probe_call("process\\(\"[^\"]+\"\\)\\.function\\(\"[^\"]+\"\\)\\.call");
+static const std::regex probe_return("process\\(\"[^\"]+\"\\)\\.function\\(\"[^\"]+\"\\)\\.return");
+static const std::regex probe_inline("process\\(\"[^\"]+\"\\)\\.function\\(\"[^\"]+\"\\)\\.inline");
+static const std::regex probe_statement("process\\(\"[^\"]+\"\\)\\.statement\\(\"([^@]+)@([^:]+):([^\"]+)\"\\)");
+static const std::regex probe_statement_nearest("process\\(\"[^\"]+\"\\)\\.statement\\(\"[^\"]+\"\\)\\.inline");
+static const std::regex probe_function("process\\(\"[^\"]+\"\\)\\.function\\(\"[^\"]+\"\\)");
+
 exit_codes process_filters(session_info &session)
 {
 	/* Go through each of the filters and see which addresses match */
@@ -209,18 +260,34 @@ exit_codes process_filters(session_info &session)
 		if (session.dbg_filter) {
 			cout << "filter: " << filter << endl;
 		}
-		// assume filter argument is just a function name
-		filter_find_funcs(session, filter);
 		// FIXME Handles these other kinds of probe locations:
-		// line numbers
 		// function entry
+		if (regex_match(filter, probe_call)){
+			filter_find_func_calls(session, filter, filter);
+			continue;
+		}
 		// function return
+		if (regex_match(filter, probe_return)){
+			filter_find_func_calls(session, filter, filter);
+			continue;
+		}
+		// line numbers
+		if (regex_match(filter, probe_statement)){
+			filter_find_statement(session, filter, "file", 0);
+			continue;
+		}
 		// inlined function entry
+		if (regex_match(filter, probe_inline)){
+			filter_find_func_inline(session, filter, filter);
+			continue;
+		}
+		// assume filter argument is just a function name
+		filter_find_funcs(session, filter, filter);
 	}
 	// If no filters in options, just make defaults ones.
 	// One filter for each function using wildcard ("*").
 	if (session.filters.size() == 0) {
-		filter_find_funcs(session, "*");
+		filter_find_funcs(session, "default",  "*");
 	}
 	return(EXIT_OK);
 }
