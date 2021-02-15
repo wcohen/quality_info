@@ -178,12 +178,12 @@ exit_codes process_binaries(session_info &session)
   return(EXIT_OK);
 }
 
-void filter_function(session_info &session, string func, Address start, Address end)
+void filter_range(session_info &session, string filter, Address start, Address end)
 {
 	if (session.dbg_filter) {
-		cout << "filter_function: " << func << " [" << hex << start << "," << hex << end << ")" << endl;
+		cout << "filter_range: " << filter << " [" << hex << start << "," << hex << end << ")" << endl;
 	}
-	session.interest_reason.add(make_pair(interval<Address>::right_open(start, end), func));
+	session.interest_reason.add(make_pair(interval<Address>::right_open(start, end), filter));
 	return;
 }
 
@@ -203,7 +203,7 @@ void filter_find_funcs (session_info &session, string filter, string func)
 		/* FIXME Make sure that the address ranges are reasonable */
 		Address start = f->getOffset();
 		Address end = start+f->getSize();
-		filter_function(session, f->getName(), start, end);
+		filter_range(session, filter, start, end);
 	}
 }
 
@@ -219,7 +219,7 @@ void filter_find_func_calls(session_info &session, string filter, string func)
 	/* Just mark the first instruction of the function(s). */
 	for (auto f: functions_of_interest) {
 		Address start = f->getOffset();
-		filter_function(session, f->getName(), start, start);
+		filter_range(session, filter, start, start);
 	}
 }
 
@@ -234,7 +234,7 @@ void filter_find_statement(session_info &session, string filter, string file, in
 
 	if (!found_lines) return;
 	for (auto f: ranges) {
-		cout << f << endl;
+		filter_range(session, filter, f.first , f.second);
 	}
 }
 
@@ -246,39 +246,47 @@ void filter_find_func_inline(session_info &session, string filter, string func)
 	// FIXME Need to iterate through all the functions and look for inlined functions call sites.
 }
 
-static const std::regex probe_call("process\\(\"[^\"]+\"\\)\\.function\\(\"[^\"]+\"\\)\\.call");
-static const std::regex probe_return("process\\(\"[^\"]+\"\\)\\.function\\(\"[^\"]+\"\\)\\.return");
-static const std::regex probe_inline("process\\(\"[^\"]+\"\\)\\.function\\(\"[^\"]+\"\\)\\.inline");
-static const std::regex probe_statement("process\\(\"[^\"]+\"\\)\\.statement\\(\"([^@]+)@([^:]+):([^\"]+)\"\\)");
-static const std::regex probe_statement_nearest("process\\(\"[^\"]+\"\\)\\.statement\\(\"[^\"]+\"\\)\\.inline");
-static const std::regex probe_function("process\\(\"[^\"]+\"\\)\\.function\\(\"[^\"]+\"\\)");
+static const std::regex probe_call("process\\(\"([^\"]+)\"\\)\\.function\\(\"([^\"]+)\"\\)\\.call");
+static const std::regex probe_return("process\\(\"([^\"]+)\"\\)\\.function\\(\"([^\"]+)\"\\)\\.return");
+static const std::regex probe_inline("process\\(\"([^\"]+)\"\\)\\.function\\(\"([^\"]+)\"\\)\\.inline");
+static const std::regex probe_statement("process\\(\"([^\"]+)\"\\)\\.statement\\(\"([^@]+)@([^:]+):([^\"]+)\"\\)");
+static const std::regex probe_statement_nearest("process\\(\"([^\"]+)\"\\)\\.statement\\(\"([^@]+)@([^:]+):([^\"]+)\"\\).nearest");
+static const std::regex probe_function("process\\(\"([^\"]+)\"\\)\\.function\\(\"([^\"]+)\"\\)");
 
 exit_codes process_filters(session_info &session)
 {
 	/* Go through each of the filters and see which addresses match */
 	for (auto filter : session.filters) {
+		std::smatch matches;
 		if (session.dbg_filter) {
 			cout << "filter: " << filter << endl;
 		}
 		// FIXME Handles these other kinds of probe locations:
 		// function entry
-		if (regex_match(filter, probe_call)){
-			filter_find_func_calls(session, filter, filter);
+		if (regex_search(filter, matches, probe_call)){
+			filter_find_func_calls(session, filter, matches[2]);
 			continue;
 		}
 		// function return
-		if (regex_match(filter, probe_return)){
-			filter_find_func_calls(session, filter, filter);
+		if (regex_search(filter, matches, probe_return)){
+			filter_find_func_calls(session, filter, matches[2]);
 			continue;
 		}
 		// line numbers
-		if (regex_match(filter, probe_statement)){
-			filter_find_statement(session, filter, "file", 0);
+		if (regex_search(filter, matches, probe_statement)){
+			// FIXME doesn't handle wildcards for line numbers
+			int line = stoi(matches[4]);
+			filter_find_statement(session, filter, matches[3], line);
 			continue;
 		}
 		// inlined function entry
-		if (regex_match(filter, probe_inline)){
-			filter_find_func_inline(session, filter, filter);
+		if (regex_search(filter, matches, probe_inline)){
+			filter_find_func_inline(session, filter, matches[2]);
+			continue;
+		}
+		// either function entry or inlined
+		if (regex_search(filter, matches, probe_function)){
+			filter_find_funcs(session, filter, matches[2]);
 			continue;
 		}
 		// assume filter argument is just a function name
