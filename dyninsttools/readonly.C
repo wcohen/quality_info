@@ -245,7 +245,7 @@ void filter_search_inline(session_info &session, string filter, string func, Sym
 	if (session.dbg_filter) {
 		cout << "inlined: " << f->getName()
 		     << " offset: " << hex << f->getOffset() << " "
-		     << location.first << " " << dec << location.second << endl;
+		     << location.first << ":" << dec << location.second << endl;
 	}
 	// FIXME Add the inlined to list of points of interest
 	// Recursively get inlined functions in the inlined function
