@@ -238,12 +238,47 @@ void filter_find_statement(session_info &session, string filter, string file, in
 	}
 }
 
+void filter_search_inline(session_info &session, string filter, string func, SymtabAPI::FunctionBase *f)
+{
+	std::pair<std::string, Dyninst::Offset> location = dynamic_cast<Dyninst::SymtabAPI::InlinedFunction*>(f)->getCallsite();
+
+	if (session.dbg_filter) {
+		cout << "inlined: " << f->getName()
+		     << " offset: " << hex << f->getOffset() << " "
+		     << location.first << " " << dec << location.second << endl;
+	}
+	// FIXME Add the inlined to list of points of interest
+	// Recursively get inlined functions in the inlined function
+	const InlineCollection& inlined_functions = f->getInlines();
+	for (auto fff: inlined_functions) {
+		if (session.dbg_filter) {
+			cout << f->getName() << "->" << fff->getName() << endl;
+		}
+		filter_search_inline(session, filter, fff->getName(), fff);
+	}
+}
+
+
 void filter_find_func_inline(session_info &session, string filter, string func)
 {
 	if (session.dbg_filter) {
 		cout << "filter_inline_func: " << filter << endl;
 	}
 	// FIXME Need to iterate through all the functions and look for inlined functions call sites.
+	vector<SymtabAPI::Function *> functions_of_interest;
+	bool matches = session.syms->findFunctionsByName(functions_of_interest,
+							 "*", anyName,
+							 true, true);
+
+	// Process inline functioned for each of the actual functions
+	for (auto ff: functions_of_interest) {
+		// Get list of inline functions in function
+		const InlineCollection& inlined_functions = ff->getInlines();
+		// Check to see if there are inlined funcitons inside this
+		for (auto fff: inlined_functions) {
+			filter_search_inline(session, filter, fff->getName(), fff);
+		}
+	}
 }
 
 static const std::regex probe_call("process\\(\"([^\"]+)\"\\)\\.function\\(\"([^\"]+)\"\\)\\.call");
