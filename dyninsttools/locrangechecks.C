@@ -8,6 +8,8 @@
  * the dyninst dataflowAPI documentation liveness Analysis example.
  */
 
+#include <boost/icl/interval_map.hpp>
+
 #include <dyninst/Symtab.h>
 #include <dyninst/CodeSource.h>
 #include <dyninst/Location.h>
@@ -18,18 +20,13 @@ using namespace Dyninst;
 using namespace SymtabAPI;
 using namespace ParseAPI;
 
-enum exit_codes {
-		 EXIT_OK=0,
-		 EXIT_ARGS=1,
-		 EXIT_MODULE=2,
-		 EXIT_NOFUNCS=3,
-		 EXIT_LFUNC=4,
-		 EXIT_LF_NOTUNIQ=5,
-		 EXIT_GLOBALS=6,
-		 EXIT_NOFILE=7
-};
+#include "common.h"
 
-ostream *errfile;
+const char *argp_program_version = "locrangechecks 0.1";
+const char *argp_program_bug_address = "https://github.com/wcohen/quality_info/issues";
+
+/* Program documentation. */
+char doc[] = "locrangechecks -- examine binary and debuginfo to do sanity checks on variable location information";
 
 void output_entry(localVar *j, VariableLocation k)
 {
@@ -57,34 +54,10 @@ void output_entry(localVar *j, VariableLocation k)
 	printf("\n");
 }
 
-int main(int argc, char **argv){
-  //Name the object file to be parsed:
-  std::string file;
-  errfile=&cerr;
-  SymtabCodeSource *sts = NULL;
-  CodeObject *co = NULL;
-  Symtab *syms = NULL;
-
-  file=argv[1];
-  if (file.length() == 0) {
-	  exit(EXIT_NOFILE);
-  }
-
-  // Create a new binary code object from the filename argument
-  sts = new SymtabCodeSource(argv[1]);
-  if( !sts )
-    exit(EXIT_MODULE);
-  co = new CodeObject( sts );
-  if( !co )
-    exit(EXIT_MODULE);
-  if(!Symtab::openFile(syms, argv[1]))
-    exit(EXIT_MODULE);
-
-  // Parse the binary
-  co->parse();
-
+exit_codes analyze_binaries(session_info &session)
+{
   //iterate through each of the the functions
-  for( auto f: co->funcs()) {
+  for( auto f: session.co->funcs()) {
 	  // List of all instruction in the function
 	  Block::Insns func_insns;
 
@@ -109,7 +82,7 @@ int main(int argc, char **argv){
 		  }
 	  }
 	  SymtabAPI::Function *func_sym;
-	  if (!syms->findFuncByEntryOffset(func_sym, f->addr())) {
+	  if (!session.syms->findFuncByEntryOffset(func_sym, f->addr())) {
 		  cerr << "unable to find " << f->name() << endl;
 		  continue;
 	  }
@@ -175,4 +148,24 @@ int main(int argc, char **argv){
 		 }
 	  }
   }
+  return(EXIT_OK);
+}
+
+int main(int argc, char **argv){
+  session_info session;
+
+  exit_codes options_status = process_options(argc, argv, session);
+  if ( options_status != EXIT_OK)
+	  exit(options_status);
+
+  exit_codes binaries_status = process_binaries(session);
+  if ( binaries_status != EXIT_OK)
+	  exit(binaries_status);
+
+  exit_codes filters_status = process_filters(session);
+  if ( filters_status != EXIT_OK)
+	  exit(filters_status);
+
+  exit_codes analyze_status = analyze_binaries(session);
+  exit(analyze_status);
 }
