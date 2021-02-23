@@ -8,9 +8,6 @@
  * the dyninst dataflowAPI documentation liveness Analysis example.
  */
 
-#include <argp.h>
-#include <map>
-#include <regex>
 #include <boost/icl/interval_map.hpp>
 
 #include <dyninst/Symtab.h>
