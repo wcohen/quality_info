@@ -8,53 +8,33 @@
  * the dyninst dataflowAPI documentation liveness Analysis example.
  */
 
+#include <boost/icl/interval_map.hpp>
+
+#include <dyninst/Symtab.h>
 #include <dyninst/CodeSource.h>
 #include <dyninst/Location.h>
+#include <dyninst/Function.h>
 #include <dyninst/liveness.h>
 #include <dyninst/bitArray.h>
 
 using namespace std;
 using namespace Dyninst;
+using namespace SymtabAPI;
 using namespace ParseAPI;
+using namespace boost::icl;
 
-enum exit_codes {
-		 EXIT_OK=0,
-		 EXIT_ARGS=1,
-		 EXIT_MODULE=2,
-		 EXIT_NOFUNCS=3,
-		 EXIT_LFUNC=4,
-		 EXIT_LF_NOTUNIQ=5,
-		 EXIT_GLOBALS=6,
-		 EXIT_NOFILE=7
-};
+#include "common.h"
 
-ostream *errfile;
+const char *argp_program_version = "readonly 0.1";
+const char *argp_program_bug_address = "https://github.com/wcohen/quality_info/issues";
 
-int main(int argc, char **argv){
-  //Name the object file to be parsed:
-  std::string file;
-  errfile=&cerr;
-  SymtabCodeSource *sts;
-  CodeObject *co;
+/* Program documentation. */
+char doc[] = "readonly -- examine binary and debuginfo to determine where writes to variables have no effect";
 
-  file=argv[1];
-  if (file.length() == 0) {
-	  exit(EXIT_NOFILE);
-  }
-
-  // Create a new binary code object from the filename argument
-  sts = new SymtabCodeSource( argv[1] );
-  if( !sts )
-    exit(EXIT_MODULE);
-  co = new CodeObject( sts );
-  if( !co )
-    exit(EXIT_MODULE);
-
-  // Parse the binary
-  co->parse();
-
+exit_codes analyze_binaries(session_info &session)
+{
   //iterate through each of the the functions
-  for( auto f: co->funcs()) {
+  for( auto f: session.co->funcs()) {
 	  LivenessAnalyzer la(f->obj()->cs()->getAddressWidth());
 
 	  printf("# %s\n", f->name().c_str());
@@ -94,4 +74,24 @@ int main(int argc, char **argv){
 		  }
 	  }
   }
+  return(EXIT_OK);
+}
+
+int main(int argc, char **argv){
+  session_info session;
+
+  exit_codes options_status = process_options(argc, argv, session);
+  if ( options_status != EXIT_OK)
+	  exit(options_status);
+
+  exit_codes binaries_status = process_binaries(session);
+  if ( binaries_status != EXIT_OK)
+	  exit(binaries_status);
+
+  exit_codes filters_status = process_filters(session);
+  if ( filters_status != EXIT_OK)
+	  exit(filters_status);
+
+  exit_codes analyze_status = analyze_binaries(session);
+  exit(analyze_status);
 }
