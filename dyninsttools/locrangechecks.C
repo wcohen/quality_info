@@ -19,6 +19,7 @@ using namespace std;
 using namespace Dyninst;
 using namespace SymtabAPI;
 using namespace ParseAPI;
+using namespace boost::icl;
 
 #include "common.h"
 
