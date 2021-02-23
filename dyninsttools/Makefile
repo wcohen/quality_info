@@ -7,6 +7,8 @@ LDFLAGS=-L /usr/lib64/dyninst \
 TOOLS=liveness locrangechecks cse readonly
 all: $(TOOLS)
 
+cse: cse.C common.a
+
 readonly: readonly.C common.a
 
 common.o: common.C common.h

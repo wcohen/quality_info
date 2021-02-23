@@ -24,56 +24,20 @@ using namespace SymtabAPI;
 using namespace ParseAPI;
 using namespace boost::icl;
 
-typedef std::set<localVar *> varset;
+#include "common.h"
 
-enum exit_codes {
-		 EXIT_OK=0,
-		 EXIT_ARGS=1,
-		 EXIT_MODULE=2,
-		 EXIT_NOFUNCS=3,
-		 EXIT_LFUNC=4,
-		 EXIT_LF_NOTUNIQ=5,
-		 EXIT_GLOBALS=6,
-		 EXIT_NOFILE=7
-};
+const char *argp_program_version = "cse 0.1";
+const char *argp_program_bug_address = "https://github.com/wcohen/quality_info/issues";
 
-ostream *errfile;
+/* Program documentation. */
+char doc[] = "cse -- examine binary and debuginfo to determine where mulitple variables share a register";
 
-bool inregister(localVar *j, VariableLocation k)
+exit_codes analyze_binaries(session_info &session)
 {
-	return ((k.stClass==storageReg) && (k.refClass==storageNoRef));
-}
-
-int main(int argc, char **argv){
-  //Name the object file to be parsed:
-  std::string file;
-  errfile=&cerr;
-  SymtabCodeSource *sts;
-  CodeObject *co;
-  Symtab *syms = NULL;
-
-  file=argv[1];
-  if (file.length() == 0) {
-	  exit(EXIT_NOFILE);
-  }
-
-  // Create a new binary code object from the filename argument
-  sts = new SymtabCodeSource( argv[1] );
-  if( !sts )
-    exit(EXIT_MODULE);
-  co = new CodeObject( sts );
-  if( !co )
-    exit(EXIT_MODULE);
-  if(!Symtab::openFile(syms, argv[1]))
-    exit(EXIT_MODULE);
-
-  // Parse the binary
-  co->parse();
-
   //iterate through each of the the functions
-  for( auto f: co->funcs()) {
+  for( auto f: session.co->funcs()) {
 	  SymtabAPI::Function *func_sym;
-	  if (!syms->findFuncByEntryOffset(func_sym, f->addr())) {
+	  if (!session.syms->findFuncByEntryOffset(func_sym, f->addr())) {
 		  cerr << "unable to find " << f->name() << endl;
 		  continue;
 	  }
@@ -118,4 +82,24 @@ int main(int argc, char **argv){
 	  }
 	  
   }
+  return(EXIT_OK);
+}
+
+int main(int argc, char **argv){
+  session_info session;
+
+  exit_codes options_status = process_options(argc, argv, session);
+  if ( options_status != EXIT_OK)
+	  exit(options_status);
+
+  exit_codes binaries_status = process_binaries(session);
+  if ( binaries_status != EXIT_OK)
+	  exit(binaries_status);
+
+  exit_codes filters_status = process_filters(session);
+  if ( filters_status != EXIT_OK)
+	  exit(filters_status);
+
+  exit_codes analyze_status = analyze_binaries(session);
+  exit(analyze_status);
 }
