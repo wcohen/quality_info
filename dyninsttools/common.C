@@ -176,7 +176,7 @@ void filter_find_funcs (session_info &session, string filter, string func)
 		/* FIXME Make sure that the address ranges are reasonable */
 		Address start = f->getOffset();
 		Address end = start+f->getSize();
-		filter_range(session, filter, start, end);
+		filter_range(session, f->getName(), start, end);
 	}
 }
 
