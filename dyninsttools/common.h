@@ -37,6 +37,12 @@ extern std::string noreason;
 extern bool inregister(localVar *j, VariableLocation k);
 extern std::string interesting_loc(session_info &session, Address addr);
 extern void dump_reg_intervals(reg_locs &register_loclist);
+extern void track_func_variables(session_info &session,
+				 reg_locs &register_loclist,
+				 SymtabAPI::FunctionBase *func_sym);
+extern void search_and_track_variables(session_info &session,
+				       reg_locs &register_loclist,
+				       SymtabAPI::FunctionBase *func_sym);
 
 extern const char *argp_program_version;
 extern const char *argp_program_bug_address;

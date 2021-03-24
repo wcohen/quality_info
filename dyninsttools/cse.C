@@ -44,21 +44,8 @@ exit_codes analyze_binaries(session_info &session)
 	  // interval containers for registers
 	  std::map<MachRegister, interval_map<Address, varset> > register_loclist;
 	  
-	  // now get list of locations for function
-	  vector <localVar *> lvars;
-	  func_sym->getParams(lvars);
-	  func_sym->getLocalVariables(lvars);
-	  for(auto j: lvars) {
-	         vector<VariableLocation> &lvlocs=j->getLocationLists();
-		 for(auto k: lvlocs) {
-			 if (inregister(j,k)) {
-				 // enter info for location list
-				 varset a_loc;
-				 a_loc.insert(j);
-				 register_loclist[k.mr_reg].add(make_pair(interval<Address>::right_open(k.lowPC, k.hiPC), a_loc));
-			 }
-		 }
-	  }
+	  /* Track variables for the function (and any inlined functions it contains)*/
+	  search_and_track_variables(session, register_loclist, func_sym);
 
 	  bool printed_name = false;
 	  for (auto it: register_loclist){

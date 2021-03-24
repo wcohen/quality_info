@@ -62,6 +62,51 @@ void dump_reg_intervals(reg_locs &register_loclist)
 	cout << "end of dump" << endl;
 }
 
+void track_func_variables(session_info &session,
+			  reg_locs &register_loclist,
+			  SymtabAPI::FunctionBase *func_sym)
+{
+	  // now get list of locations for function
+	  vector <localVar *> lvars;
+	  func_sym->getParams(lvars);
+	  func_sym->getLocalVariables(lvars);
+	  for(auto j: lvars) {
+	         vector<VariableLocation> &lvlocs=j->getLocationLists();
+		 for(auto k: lvlocs) {
+			 if (inregister(j,k)) {
+				 // enter info for location list
+				 varset a_loc;
+				 a_loc.insert(j);
+				 if (session.dbg_filter) {
+					 cout << "#adding " << k.mr_reg.name() << " "
+					      << std::hex << interval<Address>::right_open(k.lowPC, k.hiPC)
+					      << ": " << j->getName()
+					      << " (" << func_sym->getName() << ")" << endl;
+				 }
+				 register_loclist[k.mr_reg].add(make_pair(interval<Address>::right_open(k.lowPC, k.hiPC), a_loc));
+			 }
+		 }
+	  }
+}
+
+void search_and_track_variables(session_info &session,
+				reg_locs &register_loclist,
+				SymtabAPI::FunctionBase *func_sym)
+{
+	/// Process variables associated with current functions
+	track_func_variables(session, register_loclist, func_sym);
+
+	// Get list of inline functions in function and process those
+	const InlineCollection& inlined_functions = func_sym->getInlines();
+	// Check to see if there are inlined funcitons inside this
+	for (auto f: inlined_functions) {
+		if (session.dbg_filter) {
+			cout << func_sym->getName() << "->" << f->getName() << endl;
+		}
+		search_and_track_variables(session, register_loclist, f);
+	}
+}
+
 extern const char *argp_program_version;
 extern const char *argp_program_bug_address;
 
