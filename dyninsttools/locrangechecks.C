@@ -31,7 +31,7 @@ char doc[] = "locrangechecks -- examine binary and debuginfo to do sanity checks
 
 void output_entry(localVar *j, VariableLocation k)
 {
-	printf("%s [%x, %x] ", j->getName().c_str(), k.lowPC, k.hiPC);
+	printf("%s [%p, %p] ", j->getName().c_str(), k.lowPC, k.hiPC);
 	switch (k.stClass){
 	case storageAddr:
 		switch (k.refClass) {
