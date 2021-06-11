@@ -14,11 +14,13 @@
 #include <dyninst/CodeSource.h>
 #include <dyninst/Location.h>
 #include <dyninst/Function.h>
+#include <dyninst/InstructionDecoder.h>
 
 using namespace std;
 using namespace Dyninst;
 using namespace SymtabAPI;
 using namespace ParseAPI;
+using namespace InstructionAPI;
 using namespace boost::icl;
 
 #include "common.h"
@@ -57,7 +59,14 @@ void output_entry(localVar *j, VariableLocation k)
 
 exit_codes analyze_binaries(session_info &session)
 {
-  //iterate through each of the the functions
+  // Set up an instruction decoder that later used to determine instruction boundaries
+  ParseAPI::Function *dec_func = *session.co->funcs().begin();
+  //create an Instruction decoder which will convert the binary opcodes to strings
+  InstructionDecoder decoder(dec_func->isrc()->getPtrToInstruction(dec_func->addr()),
+			     InstructionDecoder::maxInstructionLength,
+			     dec_func->region()->getArch());
+
+  // iterate through each of the the functions
   for( auto f: session.co->funcs()) {
 	  // List of all instruction in the function
 	  Block::Insns func_insns;
@@ -66,22 +75,6 @@ exit_codes analyze_binaries(session_info &session)
 	  if (f->name().find(".cold")!=string::npos)
 		  continue;
 
-	  // go through each basic block
-	  for (auto bb : f->blocks()) {
-		  Block::Insns insns;
-
-		  // Add instruction in basic block to list of instructions
-		  bb->getInsns(insns);
-		  for (auto insn_iter : insns) {
-			  func_insns.insert(insn_iter);
-			  // Treat calls as special as valid to have range inside
-			  if (insn_iter.second.getCategory() == InstructionAPI::c_CallInsn)
-				  for(auto i=1; i<insn_iter.second.size(); ++i){
-					  pair <const long unsigned int, Dyninst::InstructionAPI::Instruction> caller(i+insn_iter.first, insn_iter.second);
-					  func_insns.insert(caller);
-				  }
-		  }
-	  }
 	  SymtabAPI::Function *func_sym;
 	  if (!session.syms->findFuncByEntryOffset(func_sym, f->addr())) {
 		  cerr << "unable to find " << f->name() << endl;
@@ -91,6 +84,24 @@ exit_codes analyze_binaries(session_info &session)
 	  InstructionAPI::Instruction nothing;
 	  Address func_start = f->addr();
 	  Address func_end = func_start + func_sym->getSize();
+	  Address cur_pc = func_start;
+
+	  if(func_start == func_end)
+		  continue;
+
+	  while(cur_pc < func_end) {
+		  Instruction instr = decoder.decode((unsigned char *)f->isrc()->getPtrToInstruction(cur_pc));
+		  pair <const long unsigned int, Dyninst::InstructionAPI::Instruction> addr_instr(cur_pc, instr);
+		  func_insns.insert(addr_instr);
+		  // Treat calls as special as valid to have range inside
+		  if (instr.getCategory() == InstructionAPI::c_CallInsn)
+			  for(auto i=1; i<instr.size(); ++i){
+				  pair <const long unsigned int, Dyninst::InstructionAPI::Instruction> addr_call(cur_pc+i, instr);
+				  func_insns.insert(addr_call);
+			  }
+		  cur_pc += instr.size();
+	  }
+
 	  func_insns[func_end] = nothing;
 
 	  printf ("# %s [%x,%x]\n",
