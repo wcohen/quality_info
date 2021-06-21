@@ -15,6 +15,7 @@
 #include <dyninst/Location.h>
 #include <dyninst/Function.h>
 #include <dyninst/InstructionDecoder.h>
+#include <regex>
 
 using namespace std;
 using namespace Dyninst;
@@ -65,6 +66,7 @@ exit_codes analyze_binaries(session_info &session)
   InstructionDecoder decoder(dec_func->isrc()->getPtrToInstruction(dec_func->addr()),
 			     InstructionDecoder::maxInstructionLength,
 			     dec_func->region()->getArch());
+  regex targ_symbol("targ[0-9a-f]+");
 
   // iterate through each of the the functions
   for( auto f: session.co->funcs()) {
@@ -73,6 +75,9 @@ exit_codes analyze_binaries(session_info &session)
 
 	  // skip <name>.cold regions of code
 	  if (f->name().find(".cold")!=string::npos)
+		  continue;
+	  // skip the dyninst generated targ<addr> symbols
+	  if (regex_match(f->name(), targ_symbol))
 		  continue;
 
 	  SymtabAPI::Function *func_sym;
@@ -93,8 +98,9 @@ exit_codes analyze_binaries(session_info &session)
 		  Instruction instr = decoder.decode((unsigned char *)f->isrc()->getPtrToInstruction(cur_pc));
 		  pair <const long unsigned int, Dyninst::InstructionAPI::Instruction> addr_instr(cur_pc, instr);
 		  func_insns.insert(addr_instr);
-		  // Treat calls as special as valid to have range inside
-		  if (instr.getCategory() == InstructionAPI::c_CallInsn)
+		  // Treat jmps and calls as special as valid to have range inside
+		  if (instr.getCategory() == InstructionAPI::c_CallInsn ||
+		      instr.getCategory() == InstructionAPI::c_BranchInsn)
 			  for(auto i=1; i<instr.size(); ++i){
 				  pair <const long unsigned int, Dyninst::InstructionAPI::Instruction> addr_call(cur_pc+i, instr);
 				  func_insns.insert(addr_call);
