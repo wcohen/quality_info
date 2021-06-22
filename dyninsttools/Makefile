@@ -4,7 +4,7 @@ LDFLAGS=-L /usr/lib64/dyninst \
 	-l parseAPI -l symtabAPI -l instructionAPI \
 	-l tbb -l common
 
-TOOLS=liveness locrangechecks cse readonly empty_loclist
+TOOLS=liveness locrangechecks cse readonly empty_loclist ranges_sanity
 all: $(TOOLS)
 
 liveness: liveness.C common.a
