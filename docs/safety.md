@@ -277,6 +277,97 @@ kernel.function("trace_event_name@./include/linux/trace_events.h:391").inline /*
 Pass 2: analyzed script: 35 probes, 0 functions, 0 embeds, 0 globals using 3732096virt/3498392res/13344shr/3485040data kb, in 1660usr/120sys/1805real ms.
 ```
 
+### Partial inlining
+
+Partial inlining [^partial] splits a function into a portion that is a
+candidate for inlined and a remainder that is not inlined.  The
+inlined section is likely to be smaller frequently excecuted portions
+of the function while the remainder is less frequently executed code.
+This gets the advantage of reducing function call overhead without
+having the inlining result in excessive code growth.  Like code
+sections this code now has disjoint regions associated with an
+instance of a function.
+
+[^partial]: https://developers.redhat.com/blog/2014/10/29/rhel7-gcc-optimizations-partial-inlining
+
+The earlier discussed optimization of Scalar Replacement of Aggregates
+and constant propagation could occur in partially inlined functions.
+
+An example of a partially inlined function in the Fedora 34 Linux
+5.12.7-300.fc34.x86_64 kernel is the show_mem_node_skip.part.  The
+first two lines at the beginning of the funtion are candidates to make
+into inlined code, while the last four lines are put into the
+non-inlined code.
+
+```
+/*
+ * Determine whether the node should be displayed or not, depending on whether
+ * SHOW_MEM_FILTER_NODES was passed to show_free_areas().
+ */
+static bool show_mem_node_skip(unsigned int flags, int nid, nodemask_t *nodemask)
+{
+	if (!(flags & SHOW_MEM_FILTER_NODES))
+		return false;
+
+	/*
+	 * no node mask - aka implicit memory numa policy. Do not bother with
+	 * the synchronization - read_mems_allowed_begin - because we do not
+	 * have to be precise here.
+	 */
+	if (!nodemask)
+		nodemask = &cpuset_current_mems_allowed;
+
+	return !node_isset(nid, *nodemask);
+}
+```
+
+The show_mem_node_skip.part.0 below are those non-inlined code:
+
+```
+ffffffff812c8490 <show_mem_node_skip.part.0>:
+ffffffff812c8490:	e8 4b ce d9 ff       	callq  ffffffff810652e0 <__fentry__>
+ffffffff812c8495:	48 85 f6             	test   %rsi,%rsi
+ffffffff812c8498:	74 0b                	je     ffffffff812c84a5 <show_mem_node_skip.part.0+0x15>
+ffffffff812c849a:	48 63 ff             	movslq %edi,%rdi
+ffffffff812c849d:	48 0f a3 3e          	bt     %rdi,(%rsi)
+ffffffff812c84a1:	0f 93 c0             	setae  %al
+ffffffff812c84a4:	c3                   	retq   
+ffffffff812c84a5:	65 48 8b 34 25 c0 7b 	mov    %gs:0x17bc0,%rsi
+ffffffff812c84ac:	01 00 
+ffffffff812c84ae:	48 81 c6 10 0d 00 00 	add    $0xd10,%rsi
+ffffffff812c84b5:	eb e3                	jmp    ffffffff812c849a <show_mem_node_skip.part.0+0xa>
+ffffffff812c84b7:	66 0f 1f 84 00 00 00 	nopw   0x0(%rax,%rax,1)
+ffffffff812c84be:	00 00 
+```
+
+Ran systemtap to find out where the various inlined instances of the show_mem_node_skip are located:
+
+```
+$ stap -r 5.12.7-300.fc34.x86_64  -v -L 'kernel.function("show_mem_node_skip*")'
+Pass 1: parsed user script and 791 library scripts using 3479656virt/3245196res/12464shr/3232600data kb, in 7520usr/700sys/8235real ms.
+kernel.function("show_mem_node_skip@mm/page_alloc.c:5461") /* pc=_stext+0xb95be4 */ $nodemask:nodemask_t* $nid:int $flags:unsigned int
+kernel.function("show_mem_node_skip@mm/page_alloc.c:5461") /* pc=_stext+0xb95c87 */ $nodemask:nodemask_t* $nid:int $flags:unsigned int
+kernel.function("show_mem_node_skip@mm/page_alloc.c:5461") /* pc=_stext+0x2cf5f1 */ $nodemask:nodemask_t* $nid:int $flags:unsigned int
+kernel.function("show_mem_node_skip@mm/page_alloc.c:5461") /* pc=_stext+0x2cf5bd */ $flags:unsigned int $nodemask:nodemask_t* $nid:int
+kernel.function("show_mem_node_skip@mm/page_alloc.c:5461") /* pc=_stext+0xb95949 */ $nodemask:nodemask_t* $nid:int $flags:unsigned int
+Pass 2: analyzed script: 5 probes, 0 functions, 0 embeds, 0 globals using 3730820virt/3497552res/13448shr/3483764data kb, in 1650usr/110sys/1775real ms.
+```
+
+Below show code related to the inlined check from the beginning of
+show_mem_nod_skip and the branch to the code to handle calling the
+show_mem_node_skip.part.0:
+
+
+```
+ffffffff81b95bdc:	83 7c 24 28 00       	cmpl   $0x0,0x28(%rsp)
+ffffffff81b95be1:	8b 7d 50             	mov    0x50(%rbp),%edi
+ffffffff81b95be4:	75 37                	jne    ffffffff81b95c1d <show_free_areas.cold+0x460>
+...
+ffffffff81b95c1d:	4c 89 fe             	mov    %r15,%rsi
+ffffffff81b95c20:	e8 6b 28 73 ff       	callq  ffffffff812c8490 <show_mem_node_skip.part.0>
+ffffffff81b95c25:	84 c0                	test   %al,%al
+```
+
 
 ### Inlined Functions
 
