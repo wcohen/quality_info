@@ -1,0 +1,13 @@
+#!/usr/bin/sh
+if [ "$#" -ne 1 ]; then
+    echo "Expect a path to a file to analyze" >&2
+    exit 1
+fi
+
+dwgrep "$1" -e '
+let A := entry (?TAG_subprogram || ?TAG_inlined_subroutine) ?AT_abstract_origin; 
+let ADDR := ((A ?DW_AT_low_pc @DW_AT_low_pc) || (A ?DW_AT_entry_pc @DW_AT_entry_pc) || (0xdeadbeef));
+let PARAM := [A child ?TAG_formal_parameter @AT_name] ;
+let ABSTRACT_PARAM := [A @AT_abstract_origin child ?TAG_formal_parameter @AT_name];
+[A name, ADDR, PARAM, ABSTRACT_PARAM]' 
+
