@@ -1,0 +1,11 @@
+#!/usr/bin/sh
+if [ "$#" -ne 1 ]; then
+    echo "Expect a path to a file to analyze" >&2
+    exit 1
+fi
+
+dwgrep "$1" -e '
+let A := entry (?TAG_subprogram || ?TAG_inlined_subroutine) (?AT_ranges || ?AT_low_pc);
+let FSTART := (A ?AT_ranges @AT_ranges low) || ( A low);
+let PARM := A child (?TAG_formal_parameter || ?TAG_variable);
+(PARM ?AT_location @AT_location address length==0) ([A name, FSTART, PARM name])' | grep \\[ 
