@@ -1,0 +1,78 @@
+#!/usr/bin/sh
+# This script provides some metrics how often the compiler is replacing function parameters with constants
+# It is incomplete as it doesn't note DW_AT_location lists where all entries are effectively constants.
+# For example it doesn't catch examples like the following location list entry from get_flush_tlb_info:
+# 0x00e1603d:   DW_TAG_formal_parameter
+#                 DW_AT_abstract_origin	(0x00e17e73 "new_tlb_gen")
+#                 DW_AT_location	(0x002b0cdb: 
+#                    [0xffffffff81078967, 0xffffffff810789b9): DW_OP_lit0, DW_OP_stack_value
+#                    [0xffffffff81078a1e, 0xffffffff81078a20): DW_OP_lit0, DW_OP_stack_value)
+#                 DW_AT_GNU_entry_view	(0x002b0cd7)
+#
+# This script is only detecting parameters of the form:
+# 0x00e16175:       DW_TAG_formal_parameter
+#                     DW_AT_abstract_origin	(0x00e17e73 "new_tlb_gen")
+#                     DW_AT_const_value	(0x00)
+
+if [ "$#" -ne 1 ]; then
+    echo "Expect a path to a file to analyze" >&2
+    exit 1
+fi
+
+# Determine number of actual functions
+FUNC_NO=$(dwgrep "$1" -e 'let A := entry (?TAG_subprogram) (?AT_ranges || ?AT_low_pc); [A name]' | grep "\[" | wc -l)
+
+# Determine number of inlined functions
+INL_FUNC_NO=$(dwgrep "$1" -e 'let A := entry (?TAG_inlined_subroutine) (?AT_ranges || ?AT_low_pc); [A name]' | grep "\[" | wc -l)
+
+# Determine number of actual function parameters
+FUNC_PARM_NO=$(dwgrep "$1" -e '
+let A := entry (?TAG_subprogram) (?AT_ranges || ?AT_low_pc);
+let FSTART := ((A ?AT_entry_pc @AT_entry_pc) || (A ?AT_ranges @AT_ranges low) || ( A low));
+let PARM := (A child ?TAG_formal_parameter);
+[A name, FSTART, PARM name]' | grep "\[" | wc -l)
+
+# Determine number of inlined function parameters
+INL_FUNC_PARM_NO=$(dwgrep "$1" -e '
+let A := entry (?TAG_inlined_subroutine) (?AT_ranges || ?AT_low_pc);
+let FSTART := ((A ?AT_entry_pc @AT_entry_pc) || (A ?AT_ranges @AT_ranges low) || ( A low));
+let PARM := (A child ?TAG_formal_parameter);
+[A name, FSTART, PARM name]' | grep "\[" | wc -l)
+
+# Determine number of const parameters in actual functions
+FUNC_CONST_PARM_NO=$(dwgrep "$1" -e '
+let A := entry (?TAG_subprogram) (?AT_ranges || ?AT_low_pc);
+let FSTART := ((A ?AT_entry_pc @AT_entry_pc) || (A ?AT_ranges @AT_ranges low) || ( A low));
+let PARM := (A child ?TAG_formal_parameter ?AT_const_value);
+[A name, FSTART, PARM name]' | grep "\[" | wc -l)
+
+# Determine number of const parameters in inlined functions functions
+INL_FUNC_CONST_PARM_NO=$(dwgrep "$1" -e '
+let A := entry (?TAG_inlined_subroutine) (?AT_ranges || ?AT_low_pc);
+let FSTART := ((A ?AT_entry_pc @AT_entry_pc) || (A ?AT_ranges @AT_ranges low) || ( A low));
+let PARM := (A child ?TAG_formal_parameter ?AT_const_value);
+[A name, FSTART, PARM name]' | grep "\[" | wc -l)
+
+# Determine number of actual functions with one or more const parameters
+FUNC_WITH_CONST_PARM_NO=$(dwgrep "$1" -e '
+let A := entry (?TAG_subprogram) (?AT_ranges || ?AT_low_pc);
+let FSTART := ((A ?AT_entry_pc @AT_entry_pc) || (A ?AT_ranges @AT_ranges low) || ( A low));
+let PARM := [ (A child ?TAG_formal_parameter ?AT_const_value) ];
+(PARM length > 0) [A name, FSTART]' | grep "\[" | wc -l)
+
+# Determine number of inlined functions with one or more const parameters
+INL_FUNC_WITH_CONST_PARM_NO=$(dwgrep "$1" -e '
+let A := entry (?TAG_inlined_subroutine) (?AT_ranges || ?AT_low_pc);
+let FSTART := ((A ?AT_entry_pc @AT_entry_pc) || (A ?AT_ranges @AT_ranges low) || ( A low));
+let PARM := [ (A child ?TAG_formal_parameter ?AT_const_value) ];
+(PARM length > 0) [A name, FSTART]' | grep "\[" | wc -l)
+
+# Output metrics
+echo "Functions = ${FUNC_NO}"
+echo "Inlined Functions = ${INL_FUNC_NO}"
+echo "Functions parameters = ${FUNC_PARM_NO}"
+echo "Inlined Functions parameters = ${INL_FUNC_PARM_NO}"
+echo "Functions const parameters = ${FUNC_CONST_PARM_NO}"
+echo "Inlined Functions const parameters = ${INL_FUNC_CONST_PARM_NO}"
+echo "Functions with one (or more) const parameters = ${FUNC_WITH_CONST_PARM_NO}"
+echo "Inlined Functions with one (or more) const parameters = ${INL_FUNC_WITH_CONST_PARM_NO}"
