@@ -1,18 +1,7 @@
 #!/usr/bin/sh
 # This script provides some metrics how often the compiler is replacing function parameters with constants
-# It is incomplete as it doesn't note DW_AT_location lists where all entries are effectively constants.
-# For example it doesn't catch examples like the following location list entry from get_flush_tlb_info:
-# 0x00e1603d:   DW_TAG_formal_parameter
-#                 DW_AT_abstract_origin	(0x00e17e73 "new_tlb_gen")
-#                 DW_AT_location	(0x002b0cdb: 
-#                    [0xffffffff81078967, 0xffffffff810789b9): DW_OP_lit0, DW_OP_stack_value
-#                    [0xffffffff81078a1e, 0xffffffff81078a20): DW_OP_lit0, DW_OP_stack_value)
-#                 DW_AT_GNU_entry_view	(0x002b0cd7)
-#
-# This script is only detecting parameters of the form:
-# 0x00e16175:       DW_TAG_formal_parameter
-#                     DW_AT_abstract_origin	(0x00e17e73 "new_tlb_gen")
-#                     DW_AT_const_value	(0x00)
+# This script looks for parameters that are AT_const_value_name and examine the first entry in the
+# location list to see if it contains a DW_OP_implicit_pointer, DW_OP_implicit_value, or DW_OP_stack_value.
 
 if [ "$#" -ne 1 ]; then
     echo "Expect a path to a file to analyze" >&2
@@ -43,36 +32,51 @@ let PARM := (A child ?TAG_formal_parameter);
 FUNC_CONST_PARM_NO=$(dwgrep "$1" -e '
 let A := entry (?TAG_subprogram) (?AT_ranges || ?AT_low_pc);
 let FSTART := ((A ?AT_entry_pc @AT_entry_pc) || (A ?AT_ranges @AT_ranges low) || ( A low));
-let PARM := (A child ?TAG_formal_parameter ?AT_const_value);
-[A name, FSTART, PARM name]' | grep "\[" | wc -l)
+let CONST_NAME := A child (|ARG| ARG ?TAG_formal_parameter (?AT_const_value name ||
+  ?AT_location (@AT_location (?DW_OP_implicit_pointer || ?DW_OP_implicit_value || ?DW_OP_stack_value) ?(pos == 0) ARG name)));
+[A name, FSTART, CONST_NAME]' | grep "\[" | wc -l)
 
 # Determine number of const parameters in inlined functions functions
 INL_FUNC_CONST_PARM_NO=$(dwgrep "$1" -e '
 let A := entry (?TAG_inlined_subroutine) (?AT_ranges || ?AT_low_pc);
 let FSTART := ((A ?AT_entry_pc @AT_entry_pc) || (A ?AT_ranges @AT_ranges low) || ( A low));
-let PARM := (A child ?TAG_formal_parameter ?AT_const_value);
-[A name, FSTART, PARM name]' | grep "\[" | wc -l)
+let CONST_NAME := A child (|ARG| ARG ?TAG_formal_parameter (?AT_const_value name ||
+  ?AT_location (@AT_location (?DW_OP_implicit_pointer || ?DW_OP_implicit_value || ?DW_OP_stack_value) ?(pos == 0) ARG name)));
+[A name, FSTART, CONST_NAME]' | grep "\[" | wc -l)
 
 # Determine number of actual functions with one or more const parameters
 FUNC_WITH_CONST_PARM_NO=$(dwgrep "$1" -e '
 let A := entry (?TAG_subprogram) (?AT_ranges || ?AT_low_pc);
 let FSTART := ((A ?AT_entry_pc @AT_entry_pc) || (A ?AT_ranges @AT_ranges low) || ( A low));
-let PARM := [ (A child ?TAG_formal_parameter ?AT_const_value) ];
-(PARM length > 0) [A name, FSTART]' | grep "\[" | wc -l)
+let CONST_NAME := [ A child (|ARG| ARG ?TAG_formal_parameter (?AT_const_value name ||
+  ?AT_location (@AT_location (?DW_OP_implicit_pointer || ?DW_OP_implicit_value || ?DW_OP_stack_value) ?(pos == 0) ARG name))) ];
+?(CONST_NAME length > 0)[A name, FSTART, CONST_NAME]' | grep "\[" | wc -l)
 
 # Determine number of inlined functions with one or more const parameters
 INL_FUNC_WITH_CONST_PARM_NO=$(dwgrep "$1" -e '
 let A := entry (?TAG_inlined_subroutine) (?AT_ranges || ?AT_low_pc);
 let FSTART := ((A ?AT_entry_pc @AT_entry_pc) || (A ?AT_ranges @AT_ranges low) || ( A low));
-let PARM := [ (A child ?TAG_formal_parameter ?AT_const_value) ];
-(PARM length > 0) [A name, FSTART]' | grep "\[" | wc -l)
+let CONST_NAME := [ A child (|ARG| ARG ?TAG_formal_parameter (?AT_const_value name ||
+  ?AT_location (@AT_location (?DW_OP_implicit_pointer || ?DW_OP_implicit_value || ?DW_OP_stack_value) ?(pos == 0) ARG name))) ];
+?(CONST_NAME length > 0)[A name, FSTART, CONST_NAME]' | grep "\[" | wc -l)
+
+FRAC_FUNC_WITH_CONST=$(echo "${FUNC_WITH_CONST_PARM_NO} / ${FUNC_NO} * 100" | bc -l)
+FRAC_INL_FUNC_WITH_CONST=$(echo "${INL_FUNC_WITH_CONST_PARM_NO} / ${INL_FUNC_NO} * 100" | bc -l)
+FRAC_FUNC_PARM_CONST=$(echo "${FUNC_CONST_PARM_NO} / ${FUNC_PARM_NO} * 100" | bc -l)
+FRAC_INL_FUNC_PARM_CONST=$(echo "${INL_FUNC_CONST_PARM_NO} / ${INL_FUNC_PARM_NO} * 100" | bc -l)
 
 # Output metrics
 echo "Functions = ${FUNC_NO}"
 echo "Inlined Functions = ${INL_FUNC_NO}"
 echo "Functions parameters = ${FUNC_PARM_NO}"
-echo "Inlined Functions parameters = ${INL_FUNC_PARM_NO}"
+echo "Inlined functions parameters = ${INL_FUNC_PARM_NO}"
 echo "Functions const parameters = ${FUNC_CONST_PARM_NO}"
-echo "Inlined Functions const parameters = ${INL_FUNC_CONST_PARM_NO}"
+echo "Inlined functions const parameters = ${INL_FUNC_CONST_PARM_NO}"
+echo ""
 echo "Functions with one (or more) const parameters = ${FUNC_WITH_CONST_PARM_NO}"
-echo "Inlined Functions with one (or more) const parameters = ${INL_FUNC_WITH_CONST_PARM_NO}"
+echo "Inlined functions with one (or more) const parameters = ${INL_FUNC_WITH_CONST_PARM_NO}"
+echo ""
+echo "Functions with const parameters = ${FRAC_FUNC_WITH_CONST}%"
+echo "Inlined functions with const parameters = ${FRAC_INL_FUNC_WITH_CONST}%"
+echo "Function parameters constant = ${FRAC_FUNC_PARM_CONST}%"
+echo "Inlined function parameters constant = ${FRAC_INL_FUNC_PARM_CONST}%"
