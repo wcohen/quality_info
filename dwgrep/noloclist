@@ -1,0 +1,17 @@
+#!/usr/bin/sh
+# This script highlights variables that don't have location list,
+# but the scope of the variable would be limited by function location.
+# 
+
+if [ "$#" -ne 1 ]; then
+    echo "Expect a path to a file to analyze" >&2
+    exit 1
+fi
+
+# List out any location list entries with branching operations
+dwgrep "$1" -e '
+let A := entry (?TAG_subprogram || ?TAG_inlined_subroutine) (?AT_ranges || ?AT_low_pc);
+let FSTART := ((A ?AT_entry_pc @AT_entry_pc) || (A ?AT_ranges @AT_ranges low) || ( A low));
+let VAR := (A child (?TAG_formal_parameter || ?TAG_variable));
+let NOLOCLIST := (VAR !AT_location);
+[A name, FSTART, VAR name]' | grep "\["
