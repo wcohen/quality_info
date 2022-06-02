@@ -1,0 +1,22 @@
+#!/usr/bin/sh
+if [ "$#" -ne 1 ]; then
+    echo "Expect a path to a file to analyze" >&2
+    exit 1
+fi
+
+nm_file=$(mktemp)
+dwgrep_file=$(mktemp)
+
+echo "nm functions" >  ${nm_file}
+# get rid of the "T" or "t"
+# get rid of the .suffixes
+nm $1 |grep " [tTwW] " | sed "s/ [tTwW] / /g" | sed "s/\.[^$]*//g" | sort >> ${nm_file}
+
+echo "debuginfo functions" >  ${dwgrep_file}
+dwgrep $1 -e '
+let A := entry (?TAG_subprogram) !AT_declaration;
+let FSTART := ((A ?AT_entry_pc @AT_entry_pc) || (A ?AT_ranges @AT_ranges low) || ( A low));
+FSTART A name "%s %s"' | grep ^0x | sed "s/^0x//g" | sort >> ${dwgrep_file}
+
+diff -y ${nm_file} ${dwgrep_file} | grep "[<>|]"
+rm ${nm_file} ${dwgrep_file}
