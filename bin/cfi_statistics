@@ -1,0 +1,12 @@
+#! /bin/bash
+# A script to give some statistics about Call Frame Information operations
+# The script analyzes all files matching $2 in directory $1
+# Thus, can do following to get statistics about all the shared libraries in /lib64:
+# cfi_statistics /lib64/. "*.so*"
+
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 DIRECTORY file_name_pattern" >&2
+  exit 1
+fi
+
+find $1 -name $2 -type f | xargs -I % sh -c "echo %; readelf --debug-dump=frames % |grep "^0"| egrep 'FDE|CIE' |awk '{print \$4}' | sort |uniq -c; readelf --debug-dump=frames %  | grep -v "^0"  | awk -F:  '{print \$1}' |grep DW_CFA |sort | uniq -c "
