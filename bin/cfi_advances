@@ -1,0 +1,23 @@
+#! /bin/bash
+# A script to give some information about Call Frame Information advance operations
+# The script analyzes all files matching $2 in directory $1
+# Thus, can do following to get statistics about all the shared libraries in /lib64:
+# cfi_advances /lib64/. "*.so*"
+#
+# The output are lines like the following line. The range for the FDE (pc=start..end).
+# This is followed by comma separated list of the advances.
+# The 's' suffix indicates a DW_CFA_remember_state after the advance
+# The 'r' suffix indicates a DW_CFA_restore_state after the advance
+#
+# pc=0000000000155330..000000000015540b,5,6,197s,1,5r
+
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 DIRECTORY file_name_pattern" >&2
+  exit 1
+fi
+
+find $1 -name $2 -type f | xargs -I % sh -c "echo %; readelf --debug-dump=frames %  | \
+  egrep  -o 'pc=[[:xdigit:]]+..[[:xdigit:]]+|DW_CFA_advance_loc[124]*: [[:digit:]]+|DW_CFA_remember_state|DW_CFA_restore_state' | \
+  sed 's/DW_CFA_remember_state/s/g' | \
+  sed 's/DW_CFA_restore_state/r/g' | \
+  sed 's/DW_CFA_advance_loc[124]\?: /,/g' | tr -d '\n' | sed 's/pc=/\npc=/g' "
