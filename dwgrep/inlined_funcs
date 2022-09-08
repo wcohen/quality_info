@@ -1,0 +1,23 @@
+#!/usr/bin/sh
+# This script provides some metrics how often the compiler is replacing function parameters with constants
+# This script looks for parameters that are AT_const_value_name and examine the first entry in the
+# location list to see if it contains a DW_OP_implicit_pointer, DW_OP_implicit_value, or DW_OP_stack_value.
+
+if [ "$#" -ne 1 ]; then
+    echo "Expect a path to a file to analyze" >&2
+    exit 1
+fi
+
+# Determine number of actual functions
+FUNC_NO=$(dwgrep "$1" -e 'let A := entry (?TAG_subprogram) (?AT_ranges || ?AT_low_pc); [A name]' | grep "\[" | wc -l)
+
+# Determine number of inlined functions
+INL_FUNC_NO=$(dwgrep "$1" -e 'let A := entry (?TAG_inlined_subroutine) (?AT_ranges || ?AT_low_pc); [A name]' | grep "\[" | wc -l)
+
+INL_PER_FUNC=$(echo "${INL_FUNC_NO} / ${FUNC_NO}" | bc -l)
+
+
+# Output metrics
+echo "Functions = ${FUNC_NO}"
+echo "Inlined Functions = ${INL_FUNC_NO}"
+echo "Avg Inlined/funtion = ${INL_PER_FUNC}"
