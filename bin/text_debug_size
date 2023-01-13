@@ -22,4 +22,6 @@ debug_path="/usr/lib/debug${base_dir}/${debug_file_name}"
 
 debug_size=$(ls -l $debug_path | awk '{print $5}')
 
-echo ${bin_path},$text_size,$debug_size
+debug_text_ratio=$(echo "scale = 2; $debug_size/$text_size" | bc)
+
+echo ${bin_path},$text_size,$debug_size,$debug_text_ratio
