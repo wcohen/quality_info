@@ -1,0 +1,25 @@
+#! /bin/bash
+# a script find the text size of a binar and the size of the associated debuginfo
+#
+# input: path_to_exectuable
+# output: path, text_size, debuginfo size
+#
+
+bin_path=$1
+#punt if binary not there or not an actual ELF binary executable
+[ ! -x "$bin_path" ] && exit
+file_type=$(file "$bin_path" | awk '{print $2}' )
+[ "$file_type" != "ELF" ] && exit
+
+base_dir=$(dirname $1)
+text_size=$( size --format=GNU ${bin_path} | tail -1 | awk '{print $1}')
+
+debug_file_name=$(objcopy ${bin_path} /dev/null --dump-section .gnu_debuglink=/dev/stdout | cut -d '' -f1)
+debug_path="/usr/lib/debug${base_dir}/${debug_file_name}"
+
+#punt if debuginfo not there
+[ ! -f "$debug_path" ] && exit
+
+debug_size=$(ls -l $debug_path | awk '{print $5}')
+
+echo ${bin_path},$text_size,$debug_size

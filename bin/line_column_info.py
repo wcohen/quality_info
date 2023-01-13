@@ -59,3 +59,4 @@ files = sys.argv
 del files[0]
 for f in files:
     process_file(f)
+
